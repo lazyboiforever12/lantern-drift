@@ -1,0 +1,351 @@
+// Draws a Game with raw WebGL2.
+import { createContext, createProgram, deleteMesh } from './gl.js';
+import { vertexShader, fragmentShader, MAX_LIGHTS } from './shaders.js';
+import { CURRENTS } from './levels.js';
+import { PostProcess } from './post.js';
+import { Particles } from './particles.js';
+import { perspective, lookAt, multiply, model, IDENTITY } from './math.js';
+import {
+  boatMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
+} from './meshes.js';
+
+const WHITE = [1, 1, 1];
+const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const WAKE_LIFE = 1.4;   // seconds a fleck of foam lasts
+const WAKE_MAX = 60;
+
+export class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    const gl = (this.gl = createContext(canvas));
+    this.program = createProgram(gl, vertexShader, fragmentShader);
+    gl.useProgram(this.program);
+
+    const names = [
+      'uViewProj', 'uModel', 'uTime', 'uWater', 'uTint', 'uEmissiveBoost', 'uCamPos',
+      'uAmbient', 'uMoonDir', 'uMoonColor', 'uLightCount', 'uLightPos', 'uLightColor', 'uLightRadius',
+    ];
+    this.u = {};
+    for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
+
+    this.meshes = {
+      boat: boatMesh(gl),
+      buoyOff: buoyMesh(gl, [1.0, 0.25, 0.2]),
+      buoyOn: buoyMesh(gl, [0.55, 1.0, 0.9]),
+      oil: oilMesh(gl),
+      creature: creatureMesh(gl),
+      lighthouse: lighthouseMesh(gl),
+      foam: foamMesh(gl),
+      streak: streakMesh(gl),
+    };
+    this.wake = [];       // foam flecks: { x, z, life, spin }
+    this.wakeTimer = 0;
+    this.levelMeshes = null;
+    this.levelKey = null;
+    this.cam = { x: 0, z: 0 };
+    this.lastGame = null;
+
+    // Optional extras. If post-processing can't start (old GPU or driver), draw straight to the screen.
+    this.settings = { bloom: true, shake: true, rain: true };
+    try {
+      this.post = new PostProcess(gl);
+    } catch (err) {
+      console.warn('Post-processing off:', err.message);
+      this.post = null;
+    }
+    this.particles = new Particles(gl);
+    this.shakeAmount = 0;
+    this.fade = 0;
+    this.timers = { rain: 0, ember: 0, wisp: 0 };
+
+    this.lightPos = new Float32Array(MAX_LIGHTS * 3);
+    this.lightColor = new Float32Array(MAX_LIGHTS * 3);
+    this.lightRadius = new Float32Array(MAX_LIGHTS);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.clearColor(0.01, 0.012, 0.025, 1);
+  }
+
+  resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.floor(this.canvas.clientWidth * dpr);
+    const h = Math.floor(this.canvas.clientHeight * dpr);
+    if (this.canvas.width !== w || this.canvas.height !== h) {
+      this.canvas.width = w;
+      this.canvas.height = h;
+    }
+    this.gl.viewport(0, 0, w, h);
+    return [w, h];
+  }
+
+  get postActive() {
+    return !!this.post && this.settings.bloom;
+  }
+
+  // Shake the camera a little (hits, lunges, bumps). Amount is in world units.
+  shake(amount) {
+    if (this.settings.shake) this.shakeAmount = Math.max(this.shakeAmount, amount);
+  }
+
+  // Particle effects for game events. ev comes from Game.events.
+  effect(ev, game) {
+    const P = this.particles;
+    const b = game.boat;
+    switch (ev.type) {
+      case 'flare':
+        P.burst(b.x, 2.2, b.z, { count: 50, speed: 12, up: 5, life: 1.0, size: 0.09, color: [0.9, 0.6, 0.3] });
+        for (const c of game.creatures) {
+          if (c.stun > 2) P.burst(c.x, 1, c.z, { count: 14, speed: 3, up: 2, life: 0.8, color: [0.7, 0.4, 1.0], gravity: 0 });
+        }
+        this.shake(0.25);
+        break;
+      case 'oil':
+        P.burst(ev.x, 0.6, ev.z, { count: 26, speed: 3.5, up: 4, life: 0.8, color: [1.0, 0.6, 0.2] });
+        break;
+      case 'buoy':
+        P.burst(ev.x, 1.4, ev.z, { count: 40, speed: 4, up: 5, life: 1.2, color: [0.5, 1.0, 0.9] });
+        break;
+      case 'allBuoys': {
+        const lh = game.lighthouse;
+        P.burst(lh.x, 6.5, lh.z, { count: 120, speed: 9, up: 6, life: 1.6, size: 0.2, color: [1.0, 0.9, 0.6] });
+        break;
+      }
+      case 'hit':
+        P.burst(b.x, 1.2, b.z, { count: 30, speed: 5, up: 3, life: 0.7, color: [1.0, 0.3, 0.4] });
+        this.shake(0.6);
+        break;
+      case 'lunge':
+        this.shake(0.08);
+        break;
+      case 'bump':
+        P.burst(b.x, 0.3, b.z, { count: 8, speed: 2, up: 2, life: 0.5, size: 0.08, color: [0.6, 0.75, 0.85] });
+        this.shake(0.15);
+        break;
+      case 'win': {
+        const lh = game.lighthouse;
+        P.burst(lh.x, 6.5, lh.z, { count: 160, speed: 12, up: 8, life: 2, size: 0.22, color: [1.0, 0.85, 0.5] });
+        break;
+      }
+    }
+  }
+
+  // Ambient particles: rain everywhere, embers from the lantern, wisps trailing the shadows.
+  emitAmbient(game, dt, playing) {
+    const P = this.particles;
+    const t = this.timers;
+    if (this.settings.rain) {
+      t.rain += dt * 90;
+      while (t.rain >= 1) {
+        t.rain -= 1;
+        const x = this.cam.x + (Math.random() - 0.5) * 44;
+        const z = this.cam.z + (Math.random() - 0.5) * 30 - 2;
+        const y = 9 + Math.random() * 3;
+        // Life is set so each drop ends right at the water.
+        P.spawn({ x, y, z, vx: -1.2, vy: -16, vz: 0.6, life: y / 16, size: 0.025,
+          color: [0.45, 0.55, 0.7], alpha: 0.5, streak: 0.045 });
+      }
+    }
+    if (!playing) return;
+    const b = game.boat;
+    t.ember += dt * (2 + 6 * game.oil / 100);
+    while (t.ember >= 1) {
+      t.ember -= 1;
+      P.spawn({ x: b.x + Math.sin(b.angle) * 0.3 + (Math.random() - 0.5) * 0.2, y: 2.0, z: b.z + Math.cos(b.angle) * 0.3,
+        vx: (Math.random() - 0.5) * 0.4, vy: 0.8 + Math.random() * 0.6, vz: (Math.random() - 0.5) * 0.4,
+        life: 1.2 + Math.random(), size: 0.05, color: [1.0, 0.65, 0.25], drag: 0.5 });
+    }
+    t.wisp += dt * 4 * game.creatures.length;
+    while (t.wisp >= 1) {
+      t.wisp -= 1;
+      const c = game.creatures[Math.floor(Math.random() * game.creatures.length)];
+      if (!c) break;
+      P.spawn({ x: c.x + (Math.random() - 0.5) * 0.6, y: 0.8 + Math.random() * 0.5, z: c.z + (Math.random() - 0.5) * 0.6,
+        vx: -c.vx * 0.2, vy: 0.3, vz: -c.vz * 0.2, life: 1.0, size: 0.18, grow: 0.2,
+        color: c.lunge > 0 ? [0.9, 0.2, 0.5] : [0.35, 0.15, 0.6], alpha: 0.55, drag: 1 });
+    }
+  }
+
+  prepareLevel(game) {
+    if (this.levelKey === game.def) return;
+    const gl = this.gl;
+    if (this.levelMeshes) {
+      deleteMesh(gl, this.levelMeshes.water);
+      deleteMesh(gl, this.levelMeshes.buildings);
+    }
+    this.levelMeshes = {
+      water: waterMesh(gl, game.level),
+      buildings: buildingsMesh(gl, game.level),
+    };
+    // Cells with flowing water, for drawing drifting streaks.
+    this.currentCells = [];
+    const { grid, cell } = game.level;
+    grid.forEach((row, r) => row.forEach((ch, c) => {
+      const dir = CURRENTS[ch];
+      if (dir) this.currentCells.push({ x: c * cell + cell / 2, z: r * cell + cell / 2, dir, angle: Math.atan2(dir.x, dir.z), seed: (c * 7 + r * 13) % 10 / 10 });
+    }));
+    this.levelKey = game.def;
+  }
+
+  draw(game, time, dt, { playing = true } = {}) {
+    const gl = this.gl;
+    const u = this.u;
+    const [w, h] = this.resize();
+    this.prepareLevel(game);
+    if (this.postActive) this.post.begin(w, h);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Camera follows the boat from above and behind (south).
+    const b = game.boat;
+    if (this.lastGame !== game) {
+      this.cam.x = b.x;
+      this.cam.z = b.z;
+      this.lastGame = game;
+      this.wake.length = 0;
+      this.particles.clear();
+      this.fade = 0;
+    }
+    this.fade = Math.min(1, this.fade + dt * 1.8);
+    const follow = Math.min(1, dt * 4);
+    this.cam.x += (b.x - this.cam.x) * follow;
+    this.cam.z += (b.z - this.cam.z) * follow;
+    // Screen shake: a quick random jitter that dies away.
+    this.shakeAmount *= Math.exp(-dt * 7);
+    const sx = (Math.random() - 0.5) * this.shakeAmount, sz = (Math.random() - 0.5) * this.shakeAmount;
+    const eye = [this.cam.x + sx, 21, this.cam.z + 6 + sz];
+    const target = [this.cam.x + sx, 0, this.cam.z - 0.5 + sz];
+    const aspect = this.canvas.width / Math.max(1, this.canvas.height);
+    const viewProj = multiply(perspective((48 * Math.PI) / 180, aspect, 0.5, 120), lookAt(eye, target));
+
+    gl.useProgram(this.program);
+    gl.uniformMatrix4fv(u.uViewProj, false, viewProj);
+    gl.uniform1f(u.uTime, time);
+    gl.uniform3fv(u.uCamPos, eye);
+    gl.uniform3f(u.uAmbient, 0.012, 0.014, 0.026);
+    const md = [-0.4, 1, 0.3];
+    const ml = Math.hypot(...md);
+    gl.uniform3f(u.uMoonDir, md[0] / ml, md[1] / ml, md[2] / ml);
+    gl.uniform3f(u.uMoonColor, 0.022, 0.028, 0.05);
+
+    const lights = game.lights().slice(0, MAX_LIGHTS);
+    lights.forEach((l, i) => {
+      this.lightPos.set(l.pos, i * 3);
+      this.lightColor.set(l.color, i * 3);
+      this.lightRadius[i] = l.radius;
+    });
+    gl.uniform1i(u.uLightCount, lights.length);
+    gl.uniform3fv(u.uLightPos, this.lightPos);
+    gl.uniform3fv(u.uLightColor, this.lightColor);
+    gl.uniform1fv(u.uLightRadius, this.lightRadius);
+
+    const m = this.meshes;
+    this.drawMesh(this.levelMeshes.water, IDENTITY, { water: true });
+    this.drawMesh(this.levelMeshes.buildings, IDENTITY);
+
+    const lh = game.lighthouse;
+    this.drawMesh(m.lighthouse, model(lh.x, 0, lh.z), { glow: game.lighthouseActive ? 2.5 : 0.25 });
+
+    game.buoys.forEach((bu, i) => {
+      const bob = Math.sin(time * 2 + i) * 0.06;
+      this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
+        glow: bu.lit ? 2 : 0.35 + 0.25 * Math.sin(time * 3 + i),
+      });
+    });
+
+    game.oils.forEach((o, i) => {
+      if (o.taken) return;
+      this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
+    });
+
+    // Streaks slide along each current cell and loop, so the water looks like it flows.
+    const cellSize = game.level.cell;
+    for (const cc of this.currentCells) {
+      const phase = (time * 0.9 + cc.seed) % 1;           // 0..1 across the cell
+      const along = (phase - 0.5) * cellSize;
+      const sideways = (cc.seed - 0.5) * cellSize * 0.6;
+      const x = cc.x + cc.dir.x * along + cc.dir.z * sideways;
+      const z = cc.z + cc.dir.z * along - cc.dir.x * sideways;
+      const fade = Math.sin(phase * Math.PI);               // shrink at the cell edges so the loop doesn't pop
+      this.drawMesh(m.streak, model(x, 0, z, cc.angle, fade, 1, fade), { glow: 0.6 });
+    }
+
+    this.updateWake(game, dt);
+    for (const f of this.wake) {
+      const k = f.life / WAKE_LIFE;            // 1 when new, 0 when gone
+      // Foam spreads out, then shrinks away in its last third (there's no transparency to fade with).
+      const size = (0.45 + (1 - k) * 0.9) * Math.min(1, k * 3);
+      this.drawMesh(m.foam, model(f.x, 0, f.z, f.spin, size, 1, size), { glow: 0.3 + k * 0.7 });
+    }
+
+    const bob = Math.sin(time * 2.2) * 0.08;
+    this.drawMesh(m.boat, model(b.x, bob, b.z, b.angle), { glow: 0.6 + 0.6 * (game.oil / 100) });
+
+    for (const c of game.creatures) {
+      const facing = Math.atan2(c.vx, c.vz);
+      const stunned = c.stun > 0;
+      const tint = stunned ? [2.5, 2.5, 3.5] : WHITE;
+      const y = 0.9 + Math.sin(time * 3 + c.seed) * 0.25;
+      const glow = stunned ? 0.3 : c.lunge > 0 ? 2.5 : 1.3;
+      this.drawMesh(m.creature, model(c.x, y, c.z, facing), { tint, glow });
+    }
+
+    // Particles last: they glow on top and don't hide anything behind them.
+    this.emitAmbient(game, dt, playing);
+    this.particles.update(dt);
+    const fwd = norm([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);
+    const right = norm(cross3(fwd, [0, 1, 0]));
+    const up = cross3(right, fwd);
+    const extras = [];
+    if (game.lighthouseActive) {
+      // The lighthouse beam: a long, faint streak from the lamp to a spot sweeping over the water.
+      const s = game.beamSpot;
+      const lamp = [lh.x, 6.5, lh.z];
+      const half = [(s.x - lamp[0]) / 2, (0.3 - lamp[1]) / 2, (s.z - lamp[2]) / 2];
+      extras.push([lamp[0] + half[0], lamp[1] + half[1], lamp[2] + half[2], half[0], half[1], half[2], 1.1, 1.0, 0.9, 0.65, 0.09]);
+      extras.push([s.x, 0.4, s.z, 0, 0, 0, 2.2, 1.0, 0.9, 0.6, 0.12]);
+    }
+    this.particles.draw(viewProj, right, up, extras);
+
+    if (this.postActive) {
+      this.post.end({
+        time,
+        hit: Math.min(1, game.hitFlash / 0.4),
+        danger: playing ? Math.max(0, Math.min(1, (30 - game.oil) / 30)) : 0,
+        fade: this.fade,
+        bloom: 1,
+      });
+    }
+  }
+
+  // Drop foam behind the boat while it moves; older flecks fade and spread.
+  updateWake(game, dt) {
+    for (const f of this.wake) f.life -= dt;
+    this.wake = this.wake.filter((f) => f.life > 0);
+    const b = game.boat;
+    const speed = Math.hypot(b.vx, b.vz);
+    this.wakeTimer -= dt;
+    if (speed > 1.2 && this.wakeTimer <= 0 && !game.result) {
+      this.wakeTimer = 0.09;
+      const fx = Math.sin(b.angle), fz = Math.cos(b.angle);
+      for (const side of [-1, 1]) {
+        if (this.wake.length >= WAKE_MAX) this.wake.shift();
+        this.wake.push({
+          x: b.x - fx * 1.1 + fz * side * (0.3 + Math.random() * 0.25),
+          z: b.z - fz * 1.1 - fx * side * (0.3 + Math.random() * 0.25),
+          life: WAKE_LIFE * Math.min(1, speed / 6),
+          spin: Math.random() * 3,
+        });
+      }
+    }
+  }
+
+  drawMesh(mesh, modelMatrix, { water = false, tint = WHITE, glow = 1 } = {}) {
+    const gl = this.gl;
+    gl.uniformMatrix4fv(this.u.uModel, false, modelMatrix);
+    gl.uniform1i(this.u.uWater, water ? 1 : 0);
+    gl.uniform3fv(this.u.uTint, tint);
+    gl.uniform1f(this.u.uEmissiveBoost, glow);
+    gl.bindVertexArray(mesh.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+  }
+}

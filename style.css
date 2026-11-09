@@ -1,0 +1,151 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  color: #f3e6c8;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-size: 15px;
+  text-shadow: 0 1px 3px #000;
+}
+#hud.hidden { display: none; }
+#hud > span { position: absolute; top: 14px; }
+#hud .level { left: 16px; font-weight: 600; }
+#hud .oil-label { left: 16px; top: 40px; }
+#hud .oil {
+  left: 52px;
+  top: 44px;
+  width: 180px;
+  height: 12px;
+  border: 1px solid #f3e6c899;
+  border-radius: 6px;
+  overflow: hidden;
+}
+#hud .oil > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c46a1b, #ffcf66);
+  transition: width 0.15s linear;
+}
+#hud .oil > i.low { background: linear-gradient(90deg, #8a1f12, #e0533a); }
+#hud .buoys { right: 16px; font-weight: 600; color: #9fe8d6; }
+#hud .hint { right: 16px; top: auto; bottom: 14px; opacity: 0.6; font-size: 13px; }
+#hud .msg {
+  position: absolute;
+  bottom: 70px;
+  width: 100%;
+  text-align: center;
+  font-size: 22px;
+  color: #ffe2a8;
+}
+#hud .flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(transparent 40%, #6a0d2a);
+  opacity: 0;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  background: radial-gradient(#0006, #000d);
+}
+#screen.hidden { display: none; }
+#screen h1 {
+  font-size: clamp(36px, 7vw, 64px);
+  letter-spacing: 4px;
+  color: #ffd27a;
+  margin: 0 0 12px;
+  text-shadow: 0 0 28px #ffb34777;
+}
+#screen .sub { max-width: 520px; line-height: 1.5; opacity: 0.9; }
+#screen .how { list-style: none; padding: 0; line-height: 1.8; opacity: 0.85; }
+#screen .go { margin-top: 18px; font-size: 20px; color: #ffe2a8; animation: pulse 1.6s ease-in-out infinite; }
+#screen pre { white-space: pre-wrap; max-width: 600px; font-size: 12px; opacity: 0.7; }
+
+@keyframes pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Run timer and pause button */
+#hud .timer { left: 50%; transform: translateX(-50%); font-variant-numeric: tabular-nums; opacity: 0.85; }
+#hud .pause-btn {
+  position: absolute;
+  top: 36px;
+  right: 16px;
+  pointer-events: auto;
+  font: 600 13px system-ui, sans-serif;
+  color: #f3e6c8;
+  background: #0006;
+  border: 1px solid #f3e6c855;
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+/* Level select on the title screen */
+#screen .pick { margin: 22px 0 6px; opacity: 0.7; font-size: 14px; }
+#screen .levels { list-style: none; padding: 0; margin: 0; line-height: 1.9; }
+#screen .levels li { cursor: pointer; padding: 0 10px; border-radius: 6px; }
+#screen .levels li:hover { background: #ffd27a22; }
+#screen .levels li b { color: #ffd27a; margin-right: 6px; }
+#screen .levels li.locked { opacity: 0.35; cursor: default; }
+#screen .levels li.locked:hover { background: none; }
+#screen .best { color: #9fe8d6; }
+
+/* Touch controls (shown after the first touch) */
+#touch { position: fixed; inset: auto 0 0 0; display: flex; justify-content: space-between; padding: 18px; pointer-events: none; }
+#touch.hidden { display: none; }
+#touch .pad { display: flex; gap: 14px; }
+#touch button {
+  pointer-events: auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid #f3e6c866;
+  background: #0007;
+  color: #ffe2a8;
+  font-size: 26px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#touch button.down { background: #ffd27a44; }
+#screen { z-index: 2; } /* menus sit above the touch buttons */
+@media (pointer: coarse) {
+  #hud .hint { display: none; }
+}
+
+/* Settings screen */
+#screen .settings { list-style: none; padding: 0; margin: 6px 0 0; min-width: min(420px, 90vw); }
+#screen .settings li {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#screen .settings li.sel { background: #ffd27a26; outline: 1px solid #ffd27a66; }
+#screen .settings li b { color: #ffd27a; font-weight: 600; letter-spacing: 1px; }
+#screen .small { margin-top: 18px; font-size: 13px; opacity: 0.6; cursor: pointer; }
+#hud .fps { left: 16px; top: 62px; font-size: 12px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+#hud .fps.hidden { display: none; }

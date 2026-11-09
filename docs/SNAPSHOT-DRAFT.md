@@ -39,3 +39,6 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 - Settings menu (effects, shake, rain, sound and music volume, frame rate), saved in the browser.
 - First-time tips on level 1.
 - Fixed: the water plane ended too close to the map corners, and the awake lighthouse over-lit its surroundings.
+- Procedural textures (brick, roof tiles, wood, stone) in a WebGL2 texture array with mipmaps and anisotropic filtering, using triplanar mapping (no UVs needed).
+- Planar water reflections: the scene is rendered mirrored into a half-res texture, and the water samples it with ripple distortion and Fresnel.
+- Published to GitHub Pages; Repo and Demo links added on Mipmap; Snapshot 1 posted.

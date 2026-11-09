@@ -48,6 +48,8 @@ Then open http://localhost:5173
 WebGL2 is only used to talk to the GPU. Everything below is written in this repo:
 - **Lighting:** one hand-written GLSL shader with up to 16 point lights (lantern, flares, buoys, lighthouse, beam spot), Blinn-Phong specular, a faint moon, emissive surfaces, and Reinhard tone mapping with gamma.
 - **Water:** a grid mesh displaced in the vertex shader by three sine waves, with the matching analytic normal so lights glint on the waves.
+- **Planar reflections (mirrors):** each frame the scene is drawn a second time, mirrored in the water plane (a y-flip matrix before the camera) with below-water fragments clipped, into a half-resolution framebuffer. The water shader samples it in screen space, offsets it by the wave normal so it ripples, undoes the tone mapping, and blends it with a Fresnel term.
+- **Textures and mipmaps** (`src/textures.js`): brick, roof tile, wood plank and stone textures are generated pixel by pixel in code (value noise, no image files) into one `TEXTURE_2D_ARRAY`, with a full mipmap chain from `generateMipmap`, trilinear filtering and 8× anisotropic filtering where supported. Surfaces are textured with triplanar mapping in object space, so the box meshes need no UV coordinates and textures stay stuck to the moving boat.
 - **Post-processing** (`src/post.js`): the scene is drawn into a 4× multisampled renderbuffer, resolved with `blitFramebuffer`, then bright-passed and downsampled to quarter resolution and blurred with a separable 9-tap Gaussian (linear-sampling trick, two iterations) for bloom. A composite pass adds a vignette, film grain, a chromatic split on hits, low-oil colour grading and fade-ins. The full-screen triangle is generated from `gl_VertexID`, with no vertex buffer.
 - **Instanced particles** (`src/particles.js`): up to 1500 particles in one `drawArraysInstanced` call, with per-instance attributes (`vertexAttribDivisor`), camera-facing billboards or velocity-stretched streaks, and additive blending with depth writes off.
 - **Meshes:** all models are built from boxes in code (`src/meshes.js`), and each level's buildings are baked into one static vertex buffer.
@@ -66,6 +68,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/main.js`: game states, HUD, saving, keyboard / gamepad / touch input
 - `src/post.js`: post-processing (MSAA resolve, bloom, colour grading)
 - `src/particles.js`: instanced particle system
+- `src/textures.js`: procedural textures in a texture array, with mipmaps
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
@@ -86,5 +89,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - [x] Levels 4 and 5 with currents
 - [x] Bloom post-processing, instanced particles, lighthouse beam, screen shake
 - [x] Generative music, settings menu, first-time tips
+- [x] Procedural textures with mipmaps, planar water reflections
+- [x] Published on GitHub Pages
 - [ ] Play-testing by real people
-- [ ] Publish (GitHub Pages) and ship on Mipmap
+- [ ] Ship on Mipmap

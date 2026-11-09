@@ -3,6 +3,7 @@ import { createContext, createProgram, deleteMesh } from './gl.js';
 import { vertexShader, fragmentShader, MAX_LIGHTS } from './shaders.js';
 import { CURRENTS } from './levels.js';
 import { PostProcess } from './post.js';
+import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY } from './math.js';
 import {
@@ -12,6 +13,9 @@ import {
 const WHITE = [1, 1, 1];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const NO_TEX = [-1, -1, 1];
+// Flips y: drawing with this mirrors the world in the water plane.
+const MIRROR_Y = new Float32Array([1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const WAKE_LIFE = 1.4;   // seconds a fleck of foam lasts
 const WAKE_MAX = 60;
 
@@ -25,9 +29,20 @@ export class Renderer {
     const names = [
       'uViewProj', 'uModel', 'uTime', 'uWater', 'uTint', 'uEmissiveBoost', 'uCamPos',
       'uAmbient', 'uMoonDir', 'uMoonColor', 'uLightCount', 'uLightPos', 'uLightColor', 'uLightRadius',
+      'uTextures', 'uTexSide', 'uTexTop', 'uTexScale', 'uReflection', 'uReflect', 'uViewport', 'uClip',
     ];
     this.u = {};
     for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
+
+    // Textures live on unit 2 and the reflection on unit 3 (units 0 and 1 belong to post-processing).
+    // Different sampler types must never share a unit, or draws fail.
+    this.textures = createTextures(gl);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textures);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.u.uTextures, 2);
+    gl.uniform1i(this.u.uReflection, 3);
+    this.reflection = null; // offscreen target for the mirrored scene, made on first use
 
     this.meshes = {
       boat: boatMesh(gl),
@@ -47,7 +62,7 @@ export class Renderer {
     this.lastGame = null;
 
     // Optional extras. If post-processing can't start (old GPU or driver), draw straight to the screen.
-    this.settings = { bloom: true, shake: true, rain: true };
+    this.settings = { bloom: true, shake: true, rain: true, reflections: true };
     try {
       this.post = new PostProcess(gl);
     } catch (err) {
@@ -192,8 +207,6 @@ export class Renderer {
     const u = this.u;
     const [w, h] = this.resize();
     this.prepareLevel(game);
-    if (this.postActive) this.post.begin(w, h);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Camera follows the boat from above and behind (south).
     const b = game.boat;
@@ -239,23 +252,43 @@ export class Renderer {
     gl.uniform1fv(u.uLightRadius, this.lightRadius);
 
     const m = this.meshes;
-    this.drawMesh(this.levelMeshes.water, IDENTITY, { water: true });
-    this.drawMesh(this.levelMeshes.buildings, IDENTITY);
-
     const lh = game.lighthouse;
-    this.drawMesh(m.lighthouse, model(lh.x, 0, lh.z), { glow: game.lighthouseActive ? 2.5 : 0.25 });
 
-    game.buoys.forEach((bu, i) => {
-      const bob = Math.sin(time * 2 + i) * 0.06;
-      this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
-        glow: bu.lit ? 2 : 0.35 + 0.25 * Math.sin(time * 3 + i),
-      });
-    });
+    // Pass 1: the reflection. Draw the scene mirrored in the water plane (y = 0) into a
+    // half-resolution texture. Mirroring is just a scale of -1 on y before the camera.
+    const reflecting = this.settings.reflections;
+    if (reflecting) {
+      const rt = this.reflectionTarget(Math.max(1, w >> 1), Math.max(1, h >> 1));
+      // Unbind last frame's reflection first: a texture can't be read and drawn into at once.
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo);
+      gl.viewport(0, 0, rt.w, rt.h);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.uniformMatrix4fv(u.uViewProj, false, multiply(viewProj, MIRROR_Y));
+      gl.uniform1i(u.uClip, 1);
+      gl.uniform1i(u.uReflect, 0);
+      this.drawObjects(game, time, b);
+      gl.uniform1i(u.uClip, 0);
+      gl.uniformMatrix4fv(u.uViewProj, false, viewProj);
+    }
 
-    game.oils.forEach((o, i) => {
-      if (o.taken) return;
-      this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
-    });
+    // Pass 2: the real scene, into the post-processing buffer (or straight to the screen).
+    if (this.postActive) this.post.begin(w, h);
+    else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, w, h);
+    }
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniform2f(u.uViewport, w, h);
+    gl.uniform1i(u.uReflect, reflecting ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, reflecting ? this.reflection.tex : null);
+    gl.activeTexture(gl.TEXTURE0);
+    this.drawMesh(this.levelMeshes.water, IDENTITY, { water: true });
+    gl.uniform1i(u.uReflect, 0);
+    this.drawObjects(game, time, b);
 
     // Streaks slide along each current cell and loop, so the water looks like it flows.
     const cellSize = game.level.cell;
@@ -275,18 +308,6 @@ export class Renderer {
       // Foam spreads out, then shrinks away in its last third (there's no transparency to fade with).
       const size = (0.45 + (1 - k) * 0.9) * Math.min(1, k * 3);
       this.drawMesh(m.foam, model(f.x, 0, f.z, f.spin, size, 1, size), { glow: 0.3 + k * 0.7 });
-    }
-
-    const bob = Math.sin(time * 2.2) * 0.08;
-    this.drawMesh(m.boat, model(b.x, bob, b.z, b.angle), { glow: 0.6 + 0.6 * (game.oil / 100) });
-
-    for (const c of game.creatures) {
-      const facing = Math.atan2(c.vx, c.vz);
-      const stunned = c.stun > 0;
-      const tint = stunned ? [2.5, 2.5, 3.5] : WHITE;
-      const y = 0.9 + Math.sin(time * 3 + c.seed) * 0.25;
-      const glow = stunned ? 0.3 : c.lunge > 0 ? 2.5 : 1.3;
-      this.drawMesh(m.creature, model(c.x, y, c.z, facing), { tint, glow });
     }
 
     // Particles last: they glow on top and don't hide anything behind them.
@@ -317,6 +338,66 @@ export class Renderer {
     }
   }
 
+  // Everything that stands above the water. Drawn twice per frame: mirrored, then for real.
+  drawObjects(game, time, b) {
+    const m = this.meshes;
+    const lh = game.lighthouse;
+    this.drawMesh(this.levelMeshes.buildings, IDENTITY, { tex: [TEX.brick, TEX.roof, 0.5] });
+    this.drawMesh(m.lighthouse, model(lh.x, 0, lh.z), {
+      glow: game.lighthouseActive ? 2.5 : 0.25, tex: [TEX.stone, TEX.stone, 1.5],
+    });
+    game.buoys.forEach((bu, i) => {
+      const bob = Math.sin(time * 2 + i) * 0.06;
+      this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
+        glow: bu.lit ? 2 : 0.35 + 0.25 * Math.sin(time * 3 + i),
+      });
+    });
+    game.oils.forEach((o, i) => {
+      if (o.taken) return;
+      this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
+    });
+    const bob = Math.sin(time * 2.2) * 0.08;
+    this.drawMesh(m.boat, model(b.x, bob, b.z, b.angle), {
+      glow: 0.6 + 0.6 * (game.oil / 100), tex: [TEX.wood, TEX.wood, 2.0],
+    });
+    for (const c of game.creatures) {
+      const facing = Math.atan2(c.vx, c.vz);
+      const stunned = c.stun > 0;
+      const tint = stunned ? [2.5, 2.5, 3.5] : WHITE;
+      const y = 0.9 + Math.sin(time * 3 + c.seed) * 0.25;
+      const glow = stunned ? 0.3 : c.lunge > 0 ? 2.5 : 1.3;
+      this.drawMesh(m.creature, model(c.x, y, c.z, facing), { tint, glow });
+    }
+  }
+
+  // A colour texture + depth buffer for the mirrored scene, rebuilt when the size changes.
+  reflectionTarget(w, h) {
+    const gl = this.gl;
+    const r = this.reflection;
+    if (r && r.w === w && r.h === h) return r;
+    if (r) {
+      gl.deleteFramebuffer(r.fbo);
+      gl.deleteTexture(r.tex);
+      gl.deleteRenderbuffer(r.depth);
+    }
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const depth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+    this.reflection = { fbo, tex, depth, w, h };
+    return this.reflection;
+  }
+
   // Drop foam behind the boat while it moves; older flecks fade and spread.
   updateWake(game, dt) {
     for (const f of this.wake) f.life -= dt;
@@ -339,8 +420,12 @@ export class Renderer {
     }
   }
 
-  drawMesh(mesh, modelMatrix, { water = false, tint = WHITE, glow = 1 } = {}) {
+  // tex: [wall layer, roof layer, repeats per unit], or omitted for no texture.
+  drawMesh(mesh, modelMatrix, { water = false, tint = WHITE, glow = 1, tex = NO_TEX } = {}) {
     const gl = this.gl;
+    gl.uniform1i(this.u.uTexSide, tex[0]);
+    gl.uniform1i(this.u.uTexTop, tex[1]);
+    gl.uniform1f(this.u.uTexScale, tex[2]);
     gl.uniformMatrix4fv(this.u.uModel, false, modelMatrix);
     gl.uniform1i(this.u.uWater, water ? 1 : 0);
     gl.uniform3fv(this.u.uTint, tint);

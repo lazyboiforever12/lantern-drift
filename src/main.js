@@ -52,18 +52,20 @@ let lastClear = { time: 0, best: false };
 
 // ---------- Settings (saved separately from progress) ----------
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
-const settings = { bloom: true, shake: true, rain: true, sound: 8, music: 6, fps: false };
+const settings = { bloom: true, reflections: true, shake: true, rain: true, sound: 8, music: 6, fps: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* defaults */ }
 function applySettings() {
   renderer.settings.bloom = settings.bloom;
   renderer.settings.shake = settings.shake;
   renderer.settings.rain = settings.rain;
+  renderer.settings.reflections = settings.reflections;
   sound.setVolume('sound', settings.sound / 10);
   sound.setVolume('music', settings.music / 10);
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* not saved */ }
 }
 const SETTING_ROWS = [
   { key: 'bloom', label: 'Glow and colour effects', type: 'bool' },
+  { key: 'reflections', label: 'Water reflections', type: 'bool' },
   { key: 'shake', label: 'Screen shake', type: 'bool' },
   { key: 'rain', label: 'Rain', type: 'bool' },
   { key: 'sound', label: 'Sound volume', type: 'level' },

@@ -13,7 +13,7 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 ## Snapshot 2 (post tomorrow)
 **Image:** `docs/snapshot-effects.png`
 
-> Graphics upgrade for Lantern Drift: the scene now renders offscreen with 4x MSAA, then a bloom pass (bright-pass + separable Gaussian blur at quarter resolution), vignette, film grain, a colour split when you're hit, and a cold desaturated look when your oil runs low. Added instanced particles too (rain, flare sparks, lantern embers, shadow wisps) and a sweeping lighthouse beam. Plus generative music that gets tenser when shadows are near, and a settings menu. Still raw WebGL2, all shaders by hand. (Built with help from Claude Code.)
+> Graphics upgrade for Lantern Drift: procedural brick, roof and wood textures (a WebGL2 texture array with mipmaps and anisotropic filtering, triplanar-mapped so no UVs needed) and planar water reflections, so lit windows shimmer in the flood. The scene renders offscreen with 4x MSAA, then a bloom pass (bright-pass + separable Gaussian blur at quarter resolution), vignette, film grain, a colour split when you're hit, and a cold desaturated look when your oil runs low. Added instanced particles too (rain, flare sparks, lantern embers, shadow wisps) and a sweeping lighthouse beam. Plus generative music that gets tenser when shadows are near, and a settings menu. Still raw WebGL2, all shaders by hand. (Built with help from Claude Code.)
 
 ---
 

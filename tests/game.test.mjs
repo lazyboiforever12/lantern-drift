@@ -435,3 +435,28 @@ test('weather travels in share links, storms always rain, and voyages pick one',
   for (let s = 0; s < 40; s++) kinds.add(generateVoyage(s * 13, 2).weather);
   assert.ok(kinds.size >= 3, [...kinds].join());
 });
+
+// ---------- Endless blessings ----------
+import { BLESSINGS, rollBlessings, applyBlessings } from '../src/blessings.js';
+import { BASE_STATS as BASE } from '../src/boats.js';
+
+test('blessings: three different choices, applied to a copy of the stats, and they stack', () => {
+  const r = rng2(7);
+  for (let i = 0; i < 50; i++) {
+    const offer = rollBlessings(r);
+    assert.equal(new Set(offer.map((b) => b.id)).size, 3);
+  }
+  const before = { ...BASE };
+  const s = applyBlessings(BASE, ['tank', 'tank', 'flare']);
+  assert.deepEqual(BASE, before, 'base stats untouched');
+  assert.ok(Math.abs(s.tank - BASE.tank * 1.25 * 1.25) < 1e-9);
+  assert.ok(s.flareCost < BASE.flareCost);
+  for (const b of BLESSINGS) {
+    const t = applyBlessings(BASE, [b.id]);
+    assert.notDeepEqual(t, BASE, `${b.id} changes something`);
+    for (const v of Object.values(t)) assert.ok(Number.isFinite(v));
+  }
+  const g = new Game(LEVELS[0], 0, applyBlessings(BASE, ['tank']));
+  assert.equal(g.tank, 125);
+});
+function rng2(seed) { return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }

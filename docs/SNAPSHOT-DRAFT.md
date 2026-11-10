@@ -110,3 +110,5 @@ Caption: 473 characters.
 - Phone layout fix for the new touch button; 4K hardening (2x MSAA above 6 MP, fallback if buffers fail).
 - Weather: rain, snow (flakes, snowy roofs, brighter ambient), fog (dense mist, fog banks) and clear nights, in story
   levels, voyages and the editor (share links carry it). 33 tests.
+- Weather ambience (filtered noise with gusts per weather).
+- Endless blessings (`src/blessings.js`): choose 1 of 3 stacking run upgrades after every voyage. 34 tests.

@@ -9,6 +9,7 @@ import { Sound } from './audio.js';
 import { generateVoyage, dailyVoyage, todayKey } from './voyages.js';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
 import { createAutopilot } from './autopilot.js';
+import { rollBlessings, applyBlessings, blessingById } from './blessings.js';
 
 const canvas = document.getElementById('game');
 const hudEl = document.getElementById('hud');
@@ -320,12 +321,16 @@ const SCREENS = {
     <h1>Voyage ${voyage.depth + 1} cleared</h1>
     <p class="sub">${game.def.name} \u00b7 time ${formatTime(lastClear.time)} \u00b7 oil left ${Math.round(game.oil)}</p>
     ${emberLine()}
-    <p class="sub">The next harbour is further out, and the shadows are hungrier.</p>
-    <p class="go">Press Enter to sail on</p>
+    <p class="sub">The next harbour is further out, and the shadows are hungrier. Choose a blessing for the rest of the run:</p>
+    <div class="blessings">${voyage.offer.map((b, i) => `<button data-bless="${i}" class="${i === voyage.pick ? 'sel' : ''}">
+      <span class="ico">${b.icon}</span><b>${i + 1}. ${b.name}</b><small>${b.desc}</small></button>`).join('')}</div>
+    ${blessingList()}
+    <p class="go">Press 1, 2 or 3 (or Enter) to sail on</p>
     <p class="small">Esc ends the run</p>`,
   voyageOver: () => `
     <h1>The voyage ends</h1>
     <p class="sub">Your lantern went out on voyage ${voyage.depth + 1}. You cleared <b>${voyage.depth}</b>.</p>
+    ${blessingList()}
     <p class="sub">${lastClear.newBest ? '<b class="best">New best run!</b>' : `Best run: ${save.endlessBest || 0} voyage${save.endlessBest === 1 ? '' : 's'}`}</p>
     ${emberLine()}
     <p class="go">Press Enter for a new run</p>
@@ -399,13 +404,28 @@ function startVoyage(kind) {
     voyage = { kind, depth: 0, seed: def.seed, date: def.daily };
     playVoyage(def);
   } else {
-    voyage = { kind, depth: 0, seed: (Math.random() * 2 ** 31) >>> 0 };
+    voyage = { kind, depth: 0, seed: (Math.random() * 2 ** 31) >>> 0, blessings: [] };
     playVoyage(generateVoyage(voyage.seed, 0));
   }
 }
+// Blessings collected so far in this Endless run, shown as a row of icons.
+function blessingList() {
+  if (!voyage || !voyage.blessings || !voyage.blessings.length) return '';
+  return `<p class="small blessed">Blessings: ${voyage.blessings.map((id) => {
+    const b = blessingById(id);
+    return `<span title="${b.name}: ${b.desc}">${b.icon}</span>`;
+  }).join(' ')}</p>`;
+}
+function pickBlessing(i) {
+  voyage.blessings.push(voyage.offer[i].id);
+  sound.play('buoy');
+  nextVoyage();
+}
+
 function playVoyage(def) {
   editor.close();
-  game = newGame(def, 0);
+  // Endless runs use the equipped boat plus every blessing picked so far.
+  game = new Game(def, 0, applyBlessings(equippedStats(), (voyage && voyage.blessings) || []));
   state = 'playing';
   showScreen(null);
   say(def.tip || `Light all ${game.buoys.length} buoys, then sail to the lighthouse`, def.tip ? 4 : 3);
@@ -424,6 +444,8 @@ function finishVoyage(won) {
       return 'voyageOver';
     }
     lastClear = { time: game.time, embers: earn(20 + 6 * voyage.depth + Math.round(game.oilPct / 5)) };
+    voyage.offer = rollBlessings();
+    voyage.pick = 0;
     // "Reach voyage N": clearing this one takes you to voyage depth + 2.
     awards.cleared({ kind: 'endless', voyage: voyage.depth + 2, time: game.time, oilPct: game.oilPct, hits: game.hitsTaken || 0 });
     return 'voyageClear';
@@ -706,10 +728,17 @@ function onPress(code, e) {
     case 'awards':
       if (go || code === 'Escape') toTitle();
       break;
-    case 'voyageClear':
-      if (go) nextVoyage();
+    case 'voyageClear': {
+      const n = code.startsWith('Digit') ? Number(code.slice(5)) - 1 : -1;
+      if (n >= 0 && n < voyage.offer.length) pickBlessing(n);
+      else if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD') {
+        const step = code === 'ArrowLeft' || code === 'KeyA' ? -1 : 1;
+        voyage.pick = (voyage.pick + step + voyage.offer.length) % voyage.offer.length;
+        showScreen(state);
+      } else if (go) pickBlessing(voyage.pick);
       else if (code === 'Escape') toTitle();
       break;
+    }
     case 'voyageOver':
       if (code === 'KeyS') shareResult();
       else if (go) startVoyage('endless');
@@ -840,6 +869,8 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-bless]')) {
+    if (state === 'voyageClear') pickBlessing(Number(e.target.closest('[data-bless]').dataset.bless));
   } else if (e.target.closest('[data-action="share"]')) {
     shareResult();
   } else if (state === 'photo') {

@@ -31,6 +31,8 @@ On the title screen, press a number (or click a level) to replay any level you'v
   Press **S** on the result screen to copy a spoiler-free summary (time, oil, shards, streak) with a link, to share with friends.
 - **Endless:** voyage after voyage, each further out and harder: bigger maps, more and faster shadows,
   and twists (strong currents, buoys that burn out, storms). It ends when your lantern goes out. Your best run is saved.
+  After each voyage you choose one of three **blessings** for the rest of the run (a deeper tank, cheaper or longer
+  flares, a wider lantern, a tougher hull, faster oars and more; 12 in all). They stack, so every run plays differently.
 - Voyages are built by `src/voyages.js` from a seeded random number generator, and every map has to pass the same
   fairness check as the level editor before it's used. The play-test bots won 288 of 288 generated maps without
   getting stuck, and the sloppy bot's win rate drops from 100% on the first voyage to about 40-50% by voyage 10.
@@ -151,7 +153,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 33 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 34 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `src/autopilot.js` is the bot that sails the title-screen demo; the play-test tool uses the same code.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
@@ -187,6 +189,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Endless blessings: pick 1 of 3 run upgrades after each voyage
 - [x] Weather: rain, snow, fog and clear nights
 - [x] Dash (Shift / B / RB / » button)
 - [x] Night sky with moon, stars and clouds (reflected in the water)

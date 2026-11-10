@@ -174,3 +174,33 @@ test('storm lightning stuns nearby shadows and can hurt the boat', () => {
   assert.ok(g.oil < oil - 11);
   assert.ok(g.events.some((e) => e.type === 'lightning' && e.hurt));
 });
+
+test('shadows never end up inside buildings', () => {
+  for (let i = 0; i < LEVELS.length; i++) {
+    const g = new Game(LEVELS[i], i);
+    g.oil = 1e9;
+    for (let t = 0; t < 25; t += DT) {
+      g.update(DT, { ...IDLE, forward: t % 6 < 3, left: t % 4 < 1 });
+      for (const c of g.creatures) {
+        const col = Math.floor(c.x / 2), row = Math.floor(c.z / 2);
+        assert.equal(g.isSolid(col, row), false, `${LEVELS[i].name}: shadow inside a wall at ${c.x.toFixed(1)},${c.z.toFixed(1)}`);
+      }
+    }
+  }
+});
+
+test('boat stats change how the game plays', async () => {
+  const { boatStats } = await import('../src/boats.js');
+  const tug = new Game(LEVELS[0], 0, boatStats('tug', { tank: 3 }));
+  assert.equal(tug.oil, 150 + 36);         // bigger tank, full at the start
+  tug.creatures.length = 0;
+  const skiff = new Game(LEVELS[0], 0);
+  skiff.creatures.length = 0;
+  run(tug, 2); run(skiff, 2);
+  assert.ok(186 - tug.oil < 100 - skiff.oil, 'the tug burns less oil');
+  const racer = new Game(LEVELS[2], 2, boatStats('racer', { engine: 3 }));
+  racer.creatures.length = 0;
+  racer.boat.x = 20; racer.boat.z = 19; racer.boat.angle = Math.PI / 2; // open water in The Old Harbour
+  run(racer, 1.5, { ...IDLE, forward: true });
+  assert.ok(Math.hypot(racer.boat.vx, racer.boat.vz) > 8, 'the racer is faster than the skiff can go');
+});

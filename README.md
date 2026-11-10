@@ -22,6 +22,14 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 
 On the title screen, press a number (or click a level) to replay any level you've unlocked.
 
+## Boatyard
+Press **B** on the title screen. Clearing levels earns **Embers** ✦. You get more for later levels, oil left over, first clears, new best times and full runs. Even a lost run pays a little for every buoy you lit.
+- **11 boats**, each with its own look and handling: Little Skiff, Rubber Dinghy, Canal Punt, Fishing Boat, Speedboat, Gondola, Tugboat, Paddle Steamer, Lantern Junk, Ember Racer and Moonlit Clipper.
+- **Stats** change how the boat plays: top speed, acceleration, handling (turning and grip), oil tank, fuel economy and lantern radius. The stat bars show ▲/▼ compared with your equipped boat.
+- **Upgrades** per boat, 3 levels each: Engine, Oil tank, Efficient burner and Lantern lens.
+- **Paint** for hull and trim: 17 colours, including glow paints that shine in the dark. Buy a colour once and use it on every boat.
+- The middle of the screen is a live 3D preview, drawn by the game's own renderer.
+
 ## Level editor
 Press **E** on the title screen (or click "E level editor").
 - Paint a 32 × 16 map: water, buildings, buoys, oil, shadows, currents, the boat start and the lighthouse (number keys pick tools, right-click erases).
@@ -32,7 +40,7 @@ Press **E** on the title screen (or click "E level editor").
 ## How to play
 - Your oil drains over time, and your light shrinks as it runs low. Collect oil cans.
 - Sail past every buoy to light it. Lit buoys are safe zones that shadows won't enter.
-- Shadows lunge at you and steal oil. A flare knocks them back.
+- Shadows lunge at you and steal oil. A flare knocks them back. They can't pass through buildings, so put walls between you and them.
 - Once every buoy is lit, the lighthouse wakes up. Reach it to clear the level.
 - Later levels have currents: water that carries your boat along. Ride them, or row hard against them.
 - In Ember Bay, lit buoys burn out after 40 seconds, so plan a route that gets them all lit at once.
@@ -77,6 +85,8 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/levels.js`: the five level maps, drawn as text
 - `src/main.js`: game states, HUD, saving, keyboard / gamepad / touch input, ending
 - `src/editor.js`: the level editor and share links
+- `src/boats.js`: the 11 boat designs, their stats, upgrades and paints
+- `src/shop.js`: the Boatyard screen
 - `src/post.js`: post-processing (MSAA resolve, bloom, colour grading)
 - `src/particles.js`: instanced particle system
 - `src/textures.js`: procedural textures in a texture array, with mipmaps
@@ -113,5 +123,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] The Storm (wind and lightning), ending with fireworks and credits, full-run timer
 - [x] Level editor with fairness checks and share links
 - [x] Phone layout: wider portrait view, touch hints, HUD that fits
+- [x] Shadows collide with buildings and path around them (flow field)
+- [x] Boatyard: Embers currency, 11 boats, upgrades, paints, live 3D preview
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

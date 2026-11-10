@@ -7,7 +7,7 @@ import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY } from './math.js';
 import {
-  boatMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
+  boatMesh, designBoatMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -65,6 +65,7 @@ export class Renderer {
     this.settings = { bloom: true, shake: true, rain: true, reflections: true, flashes: true };
     // 0 = full quality. Raised automatically when frames are slow: 1 no reflections, 2 no bloom, 3 lower resolution.
     this.autoLevel = 0;
+    this.showcase = false; // Boatyard preview camera
     try {
       this.post = new PostProcess(gl);
     } catch (err) {
@@ -170,6 +171,13 @@ export class Renderer {
     }
   }
 
+  // Swap in the boat from the Boatyard (design, paint and lantern position).
+  setBoat(design, paint, stats) {
+    const gl = this.gl;
+    if (this.meshes.boat) deleteMesh(gl, this.meshes.boat);
+    this.meshes.boat = designBoatMesh(gl, design, paint, stats);
+  }
+
   // A firework: a bright burst high above the water, in a random festive colour.
   firework(x, z) {
     const colors = [[1, 0.75, 0.3], [0.5, 1, 0.9], [1, 0.45, 0.6], [0.7, 0.6, 1], [1, 0.95, 0.6]];
@@ -195,10 +203,11 @@ export class Renderer {
     }
     if (!playing) return;
     const b = game.boat;
-    t.ember += dt * (2 + 6 * game.oil / 100);
+    const st = game.stats; // embers rise from wherever this boat's lantern hangs
+    t.ember += dt * (2 + 6 * game.oilPct / 100);
     while (t.ember >= 1) {
       t.ember -= 1;
-      P.spawn({ x: b.x + Math.sin(b.angle) * 0.3 + (Math.random() - 0.5) * 0.2, y: 2.0, z: b.z + Math.cos(b.angle) * 0.3,
+      P.spawn({ x: b.x + Math.sin(b.angle) * st.lanternZ + (Math.random() - 0.5) * 0.2, y: st.lanternY + 0.15, z: b.z + Math.cos(b.angle) * st.lanternZ,
         vx: (Math.random() - 0.5) * 0.4, vy: 0.8 + Math.random() * 0.6, vz: (Math.random() - 0.5) * 0.4,
         life: 1.2 + Math.random(), size: 0.05, color: [1.0, 0.65, 0.25], drag: 0.5 });
     }
@@ -257,8 +266,13 @@ export class Renderer {
     // Screen shake: a quick random jitter that dies away.
     this.shakeAmount *= Math.exp(-dt * 7);
     const sx = (Math.random() - 0.5) * this.shakeAmount, sz = (Math.random() - 0.5) * this.shakeAmount;
-    const eye = [this.cam.x + sx, 21, this.cam.z + 6 + sz];
-    const target = [this.cam.x + sx, 0, this.cam.z - 0.5 + sz];
+    let eye = [this.cam.x + sx, 21, this.cam.z + 6 + sz];
+    let target = [this.cam.x + sx, 0, this.cam.z - 0.5 + sz];
+    if (this.showcase) {
+      // Boatyard preview: a close, low camera on the boat.
+      eye = [b.x + 1.8, 5.4, b.z + 6.6];
+      target = [b.x, 0.9, b.z];
+    }
     const aspect = this.canvas.width / Math.max(1, this.canvas.height);
     // 48 degrees tall normally. On narrow (portrait) screens, widen it so you can still see
     // at least 44 degrees side to side, capped so it doesn't turn into a fish-eye.
@@ -374,7 +388,7 @@ export class Renderer {
       this.post.end({
         time,
         hit: this.settings.flashes ? Math.min(1, game.hitFlash / 0.4) : 0,
-        danger: playing ? Math.max(0, Math.min(1, (30 - game.oil) / 30)) : 0,
+        danger: playing ? Math.max(0, Math.min(1, (30 - game.oilPct) / 30)) : 0,
         fade: this.fade,
         bloom: 1,
       });
@@ -401,7 +415,7 @@ export class Renderer {
     });
     const bob = Math.sin(time * 2.2) * 0.08;
     this.drawMesh(m.boat, model(b.x, bob, b.z, b.angle), {
-      glow: 0.6 + 0.6 * (game.oil / 100), tex: [TEX.wood, TEX.wood, 2.0],
+      glow: 0.6 + 0.6 * (game.oilPct / 100), tex: [TEX.wood, TEX.wood, 2.0],
     });
     for (const c of game.creatures) {
       const facing = Math.atan2(c.vx, c.vz);

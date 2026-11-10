@@ -1,9 +1,10 @@
 // Game rules: steering the boat, oil, buoys, the lighthouse and the shadow creatures.
 import { parseLevel, CURRENTS } from './levels.js';
 import { clamp, dist } from './math.js';
+import { BASE_STATS } from './boats.js';
 
-const BOAT_RADIUS = 0.75;
-const OIL_MAX = 100;
+const SHADOW_RADIUS = 0.55;
+const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const OIL_PICKUP = 35;
 const HIT_COST = 18;
 const FLARE_COST = 12;
@@ -21,13 +22,16 @@ const LUNGE_SPEED = 9;       // faster than the boat, so you can't just outrun i
 const LUNGE_RANGE = 6;       // how far outside the fear radius a shadow will start a lunge
 
 export class Game {
-  constructor(def, index) {
+  // stats: the boat's performance from the Boatyard (defaults to the starter skiff).
+  constructor(def, index, stats = BASE_STATS) {
+    this.stats = stats;
     this.def = def;
     this.index = index;
     this.level = parseLevel(def);
     const L = this.level;
     this.boat = { x: L.start.x, z: L.start.z, angle: this.openHeading(L.start), vx: 0, vz: 0 };
-    this.oil = OIL_MAX;
+    this.tank = stats.tank;
+    this.oil = this.tank;
     this.oils = L.oils.map((p) => ({ ...p, taken: false }));
     this.buoys = L.buoys.map((p) => ({ ...p, lit: false }));
     this.creatures = L.creatures.map((p, i) => ({
@@ -64,13 +68,18 @@ export class Game {
     return u.timer < 4 ? k * (0.6 + 0.4 * Math.sin(this.time * 18)) : k;
   }
 
+  // Oil as a percentage of this boat's tank.
+  get oilPct() {
+    return (100 * this.oil) / this.tank;
+  }
+
   get buoysLit() {
     return this.buoys.filter((b) => b.lit).length;
   }
 
   // How far the lantern reaches. It shrinks as the oil runs low.
   get lanternRadius() {
-    return 4 + 8 * (this.oil / OIL_MAX);
+    return (4 + 8 * (this.oil / this.tank)) * this.stats.lantern;
   }
 
   // Creatures won't come closer than this unless they lunge.
@@ -206,7 +215,7 @@ export class Game {
       }
     }
 
-    this.oil -= this.def.drain * dt;
+    this.oil -= this.def.drain * this.stats.drain * dt;
     if (this.oil <= 0) {
       this.oil = 0;
       this.result = 'lost';
@@ -225,17 +234,18 @@ export class Game {
     const turn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
     const thrust = (input.forward ? 1 : 0) - (input.back ? 0.5 : 0);
     const speed = Math.hypot(b.vx, b.vz);
-    b.angle += turn * (1.7 + Math.min(speed, 6) * 0.2) * dt;
+    const st = this.stats;
+    b.angle += turn * (st.turn + Math.min(speed, 6) * 0.2) * dt;
 
     const fx = Math.sin(b.angle), fz = Math.cos(b.angle);
-    b.vx += fx * thrust * 10 * dt;
-    b.vz += fz * thrust * 10 * dt;
+    b.vx += fx * thrust * st.thrust * dt;
+    b.vz += fz * thrust * st.thrust * dt;
 
     // Water drag: little along the hull, a lot sideways (like a keel).
     let along = b.vx * fx + b.vz * fz;
     let side = b.vx * fz - b.vz * fx;
-    along = clamp(along * Math.exp(-1.2 * dt), -3, 7.5);
-    side *= Math.exp(-5 * dt);
+    along = clamp(along * Math.exp(-1.2 * dt), -3, st.maxSpeed);
+    side *= Math.exp(-st.grip * dt);
     b.vx = fx * along + fz * side;
     b.vz = fz * along - fx * side;
 
@@ -254,11 +264,16 @@ export class Game {
     this.collideBoat();
   }
 
-  // Circle (boat) against the square cells of buildings.
   collideBoat() {
-    const b = this.boat;
+    const vn = this.collideCircle(this.boat, this.stats.radius, 1.3);
+    if (vn < -3) this.events.push({ type: 'bump' });
+  }
+
+  // A circle (boat or shadow) against the square cells of buildings. Pushes it out and
+  // bounces its velocity. Returns the strongest speed it hit a wall with (negative).
+  collideCircle(b, r, bounce) {
     const { cell } = this.level;
-    const r = BOAT_RADIUS;
+    let worst = 0;
     const c0 = Math.floor((b.x - r) / cell), c1 = Math.floor((b.x + r) / cell);
     const r0 = Math.floor((b.z - r) / cell), r1 = Math.floor((b.z + r) / cell);
     for (let row = r0; row <= r1; row++) {
@@ -285,12 +300,68 @@ export class Game {
         b.z += nz * (r - d);
         const vn = b.vx * nx + b.vz * nz;
         if (vn < 0) {
-          b.vx -= vn * nx * 1.3;
-          b.vz -= vn * nz * 1.3;
-          if (vn < -3) this.events.push({ type: 'bump' });
+          b.vx -= vn * nx * bounce;
+          b.vz -= vn * nz * bounce;
+          worst = Math.min(worst, vn);
         }
       }
     }
+    return worst;
+  }
+
+  // True if nothing solid lies on the straight line between two points.
+  clearLine(ax, az, bx, bz) {
+    const { cell } = this.level;
+    const steps = Math.ceil(Math.hypot(bx - ax, bz - az) / (cell * 0.25));
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      if (this.isSolid(Math.floor((ax + (bx - ax) * t) / cell), Math.floor((az + (bz - az) * t) / cell))) return false;
+    }
+    return true;
+  }
+
+  // Flow field: for every water cell, how many steps it is to the boat (refreshed a few
+  // times a second). A shadow that can't see the boat walks downhill on it, around buildings.
+  updateFlowField() {
+    const { width, height, cell } = this.level;
+    if (!this.flow) this.flow = new Int16Array(width * height);
+    const f = this.flow.fill(-1);
+    const sc = Math.floor(this.boat.x / cell), sr = Math.floor(this.boat.z / cell);
+    const queue = [sr * width + sc];
+    f[queue[0]] = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const k = queue[i];
+      const c = k % width, r = (k - c) / width;
+      for (const [dc, dr] of NEIGHBOURS) {
+        const nc = c + dc, nr = r + dr;
+        if (this.isSolid(nc, nr)) continue;
+        // No cutting corners diagonally past a building.
+        if (dc && dr && (this.isSolid(c + dc, r) || this.isSolid(c, r + dr))) continue;
+        const nk = nr * width + nc;
+        if (f[nk] !== -1) continue;
+        f[nk] = f[k] + 1;
+        queue.push(nk);
+      }
+    }
+  }
+
+  // The direction a shadow at (x, z) should go to reach the boat around the buildings.
+  flowDirection(x, z) {
+    const { width, cell } = this.level;
+    const c = Math.floor(x / cell), r = Math.floor(z / cell);
+    const here = this.flow[r * width + c];
+    let best = null, bestD = here >= 0 ? here : 1e9;
+    for (const [dc, dr] of NEIGHBOURS) {
+      const nc = c + dc, nr = r + dr;
+      if (this.isSolid(nc, nr)) continue;
+      if (dc && dr && (this.isSolid(c + dc, r) || this.isSolid(c, r + dr))) continue;
+      const d = this.flow[nr * width + nc];
+      if (d >= 0 && d < bestD) { bestD = d; best = [nc, nr]; }
+    }
+    if (!best) return null;
+    const tx = best[0] * cell + cell / 2 - x, tz = best[1] * cell + cell / 2 - z;
+    const l = Math.hypot(tx, tz) || 1;
+    return { x: tx / l, z: tz / l };
   }
 
   updatePickups() {
@@ -298,7 +369,7 @@ export class Game {
     for (const o of this.oils) {
       if (!o.taken && dist(b.x, b.z, o.x, o.z) < 1.5) {
         o.taken = true;
-        this.oil = Math.min(OIL_MAX, this.oil + OIL_PICKUP);
+        this.oil = Math.min(this.tank, this.oil + OIL_PICKUP);
         this.events.push({ type: 'oil', x: o.x, z: o.z });
       }
     }
@@ -319,6 +390,11 @@ export class Game {
     const b = this.boat;
     const fear = this.fearRadius;
     const { width, height, cell } = this.level;
+    this.flowTimer = (this.flowTimer || 0) - dt;
+    if (this.flowTimer <= 0 || !this.flow) {
+      this.flowTimer = 0.25;
+      this.updateFlowField();
+    }
     for (const c of this.creatures) {
       c.stun = Math.max(0, c.stun - dt);
       c.cool -= dt;
@@ -328,17 +404,20 @@ export class Game {
       const d = Math.hypot(dx, dz) || 0.001;
       const ux = dx / d, uz = dz / d;
       let ax = 0, az = 0;
+      // Can this shadow see the boat? If not, it follows the flow field around buildings.
+      const sees = this.clearLine(c.x, c.z, b.x, b.z);
+      const way = sees ? { x: ux, z: uz } : this.flowDirection(c.x, c.z) || { x: ux, z: uz };
 
       if (c.stun > 0) {
         // Drift away, dazed.
       } else if (c.lunge > 0) {
-        ax += ux * 24; az += uz * 24;
-      } else if (d < fear) {
+        ax += way.x * 24; az += way.z * 24;
+      } else if (d < fear && sees) {
         ax -= ux * 8; az -= uz * 8;
       } else {
-        ax += ux * this.def.creatureSpeed * 2;
-        az += uz * this.def.creatureSpeed * 2;
-        if (c.cool <= 0 && d < fear + LUNGE_RANGE) {
+        ax += way.x * this.def.creatureSpeed * 2;
+        az += way.z * this.def.creatureSpeed * 2;
+        if (c.cool <= 0 && sees && d < fear + LUNGE_RANGE) {
           c.lunge = LUNGE_TIME;
           c.cool = this.def.lungeCooldown + ((c.seed * 7.3 + this.time) % 2);
           this.events.push({ type: 'lunge' });
@@ -375,6 +454,8 @@ export class Game {
       }
       c.x = clamp(c.x + c.vx * dt, cell, (width - 1) * cell);
       c.z = clamp(c.z + c.vz * dt, cell, (height - 1) * cell);
+      // Shadows can't pass through buildings any more: they slide along walls like the boat.
+      this.collideCircle(c, SHADOW_RADIUS, 1.0);
 
       if (d < 1.1 && c.stun <= 0) {
         this.oil -= HIT_COST;
@@ -393,9 +474,9 @@ export class Game {
     const b = this.boat;
     const t = this.time;
     const flicker = 1 + 0.06 * Math.sin(t * 23) + 0.04 * Math.sin(t * 37);
-    const lantern = 0.6 + 0.4 * (this.oil / OIL_MAX);
+    const lantern = 0.6 + 0.4 * (this.oil / this.tank);
     const list = [{
-      pos: [b.x + Math.sin(b.angle) * 0.3, 1.85, b.z + Math.cos(b.angle) * 0.3],
+      pos: [b.x + Math.sin(b.angle) * this.stats.lanternZ, this.stats.lanternY, b.z + Math.cos(b.angle) * this.stats.lanternZ],
       color: [2.6 * flicker * lantern, 1.8 * flicker * lantern, 0.9 * flicker * lantern],
       radius: this.lanternRadius,
     }];

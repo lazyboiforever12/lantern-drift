@@ -54,3 +54,6 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 - Level editor: paint 32×16 maps, live fairness checks (the same `checkLevel` the CLI uses), play instantly, and share by link (run-length-encoded, base64 code in the URL hash).
 - Phone: the field of view widens in portrait, plus touch control hints and a HUD that fits small screens.
 - 16 tests now (added share codes, the level checker and lightning).
+- Shadows no longer pass through buildings: they collide like the boat and find their way with a flow field (a BFS distance map to the boat, refreshed 4× a second). They only lunge with a clear line of sight. Tested: no shadow ever ends up inside a wall.
+- Boatyard (idea from lazyboiforever12): Embers currency from clears (first clears, oil left, best times, full runs), 11 boat designs with real stat differences, 4 upgrades × 3 levels per boat, 17 hull/trim paints including glow paints, and a live 3D preview using the game's renderer.
+- 18 tests.

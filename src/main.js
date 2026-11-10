@@ -3,6 +3,8 @@ import { Renderer } from './render.js';
 import { Game } from './game.js';
 import { LEVELS, decodeLevel } from './levels.js';
 import { createEditor } from './editor.js';
+import { createShop } from './shop.js';
+import { BOATS, boatById, boatStats, boatPaint, defaultBoatyard } from './boats.js';
 import { Sound } from './audio.js';
 
 const canvas = document.getElementById('game');
@@ -22,7 +24,7 @@ const keys = new Set();
 let state = 'title'; // title | playing | paused | levelClear | gameOver | won | settings | editor | customClear
 let customDef = null; // set while playing a level from the editor
 let levelIndex = 0;
-let game = new Game(LEVELS[0], 0);
+let game = null; // created once the saved boat is loaded (below)
 let time = 0;
 let last = performance.now();
 let message = '';
@@ -38,6 +40,13 @@ function loadSave() {
   return { unlocked: 1, best: {} };
 }
 const save = loadSave();
+// The Boatyard: Embers, owned boats, upgrades and paints live inside the save.
+const yard = (save.boatyard = Object.assign(defaultBoatyard(), save.boatyard || {}));
+if (!yard.boats[yard.equipped]) yard.equipped = 'skiff';
+const equippedStats = () => boatStats(yard.equipped, yard.boats[yard.equipped]);
+// Every level is played with the equipped boat's stats.
+const newGame = (def, i) => new Game(def, i, equippedStats());
+game = newGame(LEVELS[0], 0);
 function writeSave() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage blocked: progress just isn't kept */ }
 }
@@ -116,6 +125,13 @@ function checkTips() {
   tip('buoy', 'Lit buoys are safe zones: shadows stay away from them', game.buoysLit === 1);
 }
 
+function earn(n) {
+  yard.embers += n;
+  writeSave();
+  return n;
+}
+const emberLine = () => (lastClear.embers ? `<p class="earned">+${lastClear.embers} \u2726 Embers</p>` : '');
+
 function formatTime(t) {
   const m = Math.floor(t / 60);
   const sec = Math.floor(t % 60);
@@ -147,7 +163,7 @@ const hud = {
 let fpsFrames = 0, fpsTime = 0;
 
 function updateHud(dt) {
-  hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || (state === 'settings' && settingsFrom === 'title'));
+  hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || state === 'shop' || (state === 'settings' && settingsFrom === 'title'));
   hud.level.textContent = customDef ? game.def.name : `Level ${levelIndex + 1}: ${game.def.name}`;
   hud.timer.textContent = formatTime(game.time);
   // Wind arrow on storm levels: points where the wind blows (screen up = -z), sized by strength.
@@ -158,7 +174,7 @@ function updateHud(dt) {
     const s = 0.8 + Math.hypot(w.x, w.z) * 0.35;
     hud.wind.style.transform = `translateX(-50%) rotate(${deg}deg) scale(${s})`;
   }
-  const pct = Math.max(0, game.oil);
+  const pct = Math.max(0, game.oilPct);
   hud.oil.style.width = `${pct}%`;
   hud.oil.classList.toggle('low', pct < 25);
   const lit = game.buoysLit;
@@ -200,26 +216,31 @@ const SCREENS = {
     </ul>
     <p class="go">Press Enter or tap to start</p>
     ${levelList()}
+    <p class="embers-line" data-action="shop">\u2726 ${yard.embers.toLocaleString()} Embers \u00b7 <b>${boatById(yard.equipped).name}</b> \u00b7 <u>B Boatyard</u></p>
     <p class="small"><span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
   levelClear: () => `
     <h1>Harbour reached</h1>
     <p class="sub">${game.def.name} is safe. Oil left: ${Math.round(game.oil)}</p>
     <p class="sub">Time ${formatTime(lastClear.time)} · ${lastClear.best ? '<b class="best">New best!</b>' : `Best ${formatTime(save.best[levelIndex])}`}</p>
+    ${emberLine()}
     <p class="go">Press Enter for level ${levelIndex + 2}</p>`,
   gameOver: () => `
     <h1>Your lantern went out</h1>
     <p class="sub">The shadows close in around the little boat.</p>
+    ${emberLine()}
     <p class="go">Press Enter to try again</p>
     ${customDef ? '<p class="small">Esc back to the editor</p>' : ''}`,
   customClear: () => `
     <h1>You beat your level!</h1>
     <p class="sub">Time ${formatTime(lastClear.time)} \u00b7 oil left ${Math.round(game.oil)}</p>
+    ${emberLine()}
     <p class="go">Press Enter to go back to the editor</p>
     <p class="small">Share it from the editor with "Share code"</p>`,
   won: () => `
     <h1>The town is lit</h1>
     <p class="sub">Every lighthouse is shining again. Thanks for playing!</p>
     <p class="sub">Last harbour in ${formatTime(lastClear.time)}${lastClear.best ? ' · <b class="best">New best!</b>' : ''}</p>
+    ${emberLine()}
     ${run.valid ? `<p class="sub">Full run: <b>${formatTime(run.time)}</b>${run.best ? ' · <b class="best">New best run!</b>' : save.bestRun ? ` · best ${formatTime(save.bestRun)}` : ''}</p>` : ''}
     <div class="credits"><div class="roll">
       <p><b>Lantern Drift</b></p>
@@ -278,7 +299,7 @@ function restart() {
 function startCustom(def) {
   customDef = def;
   run.valid = false;
-  game = new Game(def, 0);
+  game = newGame(def, 0);
   state = 'playing';
   editor.close();
   showScreen(null);
@@ -292,6 +313,31 @@ function openEditor(rows) {
   editor.open(rows);
 }
 
+// Boat in the renderer: the equipped one normally, or whatever is selected in the Boatyard.
+function showBoat(id) {
+  const owned = yard.boats[id] || { hull: 'oak', trim: 'tar' };
+  renderer.setBoat(boatById(id).design, boatPaint(owned), boatStats(id, owned));
+}
+
+// The Boatyard shows the boat on calm open water in level 1, without shadows.
+function openShop() {
+  state = 'shop';
+  showScreen(null);
+  game = newGame(LEVELS[0], 0);
+  game.creatures.length = 0;
+  game.boat.x = 20; game.boat.z = 13;
+  renderer.showcase = true;
+  shop.open();
+}
+
+const shop = createShop({
+  yard,
+  onSave: writeSave,
+  onPreview: (id) => showBoat(id),
+  onClose: () => { shop.close(); renderer.showcase = false; showBoat(yard.equipped); toTitle(); },
+  onSound: (name) => sound.play(name),
+});
+
 const editor = createEditor({
   onPlay: (def) => startCustom(def),
   onClose: () => { editor.close(); toTitle(); },
@@ -302,7 +348,7 @@ function startLevel(i) {
   if (state === 'title' || state === 'won') run = { valid: i === 0, time: 0 }; // only a run from level 1 counts
   else if (state !== 'levelClear') run.time += game.time;                    // retries and restarts cost time
   levelIndex = i;
-  game = new Game(LEVELS[i], i);
+  game = newGame(LEVELS[i], i);
   state = 'playing';
   showScreen(null);
   say(game.def.tip || `Light all ${game.buoys.length} buoys to wake the lighthouse`, game.def.tip ? 5 : 4);
@@ -313,7 +359,7 @@ function toTitle() {
   editor.close();
   state = 'title';
   levelIndex = 0;
-  game = new Game(LEVELS[0], 0);
+  game = newGame(LEVELS[0], 0);
   showScreen('title');
 }
 
@@ -353,6 +399,14 @@ function onPress(code) {
   }
   if (state === 'editor') {
     editor.key(code);
+    return;
+  }
+  if (state === 'shop') {
+    shop.key(code);
+    return;
+  }
+  if (code === 'KeyB' && state === 'title') {
+    openShop();
     return;
   }
   if (code === 'KeyE' && state === 'title') {
@@ -494,7 +548,9 @@ screenEl.addEventListener('pointerdown', (e) => {
   sound.unlock();
   const pick = e.target.closest('[data-level]');
   const rowEl = e.target.closest('[data-row]');
-  if (e.target.closest('[data-action="editor"]')) {
+  if (e.target.closest('[data-action="shop"]')) {
+    openShop();
+  } else if (e.target.closest('[data-action="editor"]')) {
     openEditor();
   } else if (e.target.closest('[data-action="settings"]')) {
     onPress('KeyO');
@@ -562,6 +618,7 @@ function frame(now) {
 function tick(dt) {
   time += dt;
   const pad = readGamepad(); // read every frame so menu buttons work too
+  if (state === 'shop') game.boat.angle = time * 0.5; // the preview boat turns slowly
   if (state === 'won') {
     // Fireworks over the last lighthouse while the credits roll.
     fireworkTimer -= dt;
@@ -577,7 +634,7 @@ function tick(dt) {
     const b = game.boat;
     const nearest = Math.min(99, ...game.creatures.map((c) => Math.hypot(c.x - b.x, c.z - b.z)));
     sound.tension = Math.max(0, Math.min(1, (10 - nearest) / 8));
-    sound.danger = Math.max(0, Math.min(1, (30 - game.oil) / 30));
+    sound.danger = Math.max(0, Math.min(1, (30 - game.oilPct) / 30));
   } else {
     sound.tension = 0;
     sound.danger = 0;
@@ -587,19 +644,28 @@ function tick(dt) {
     for (const ev of game.events) handleEvent(ev);
     game.events.length = 0;
     if (game.result === 'lost') {
+      // Even a lost run pays a little for how far you got.
+      lastClear = { time: game.time, best: false, embers: earn(4 * game.buoysLit) };
       state = 'gameOver';
       showScreen('gameOver');
     } else if (game.result === 'won' && customDef) {
-      lastClear = { time: game.time, best: false };
+      lastClear = { time: game.time, best: false, embers: earn(10) };
       state = 'customClear';
       showScreen(state);
     } else if (game.result === 'won') {
+      const first = save.best[levelIndex] === undefined;
       lastClear = { time: game.time, best: recordClear(levelIndex, game.time) };
       run.time += game.time;
+      // Embers: more for later levels, oil left over, a first clear, and a new best time.
+      let embers = 25 + 10 * levelIndex + Math.round(game.oilPct / 4);
+      if (first) embers += 40 + 15 * levelIndex;
+      else if (lastClear.best) embers += 15;
       if (levelIndex === LEVELS.length - 1 && run.valid) {
         run.best = !save.bestRun || run.time < save.bestRun;
         if (run.best) { save.bestRun = run.time; writeSave(); }
+        embers += 150; // full run bonus
       }
+      lastClear.embers = earn(embers);
       state = levelIndex === LEVELS.length - 1 ? 'won' : 'levelClear';
       showScreen(state);
     }
@@ -643,6 +709,8 @@ window.lanternDrift = {
   startLevel,
   get renderer() { return renderer; },
   editor: () => editor,
+  yard,
+  openShop,
   save,
   step(seconds) {
     for (let t = 0; t < seconds; t += 1 / 60) tick(1 / 60);
@@ -654,6 +722,7 @@ window.lanternDrift = {
 };
 
 applySettings();
+showBoat(yard.equipped);
 showScreen('title');
 // A shared level link (#level=CODE) opens straight into the editor with that level.
 if (location.hash.startsWith('#level=')) {

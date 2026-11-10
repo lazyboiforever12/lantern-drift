@@ -51,6 +51,25 @@ const WOOD = [0.45, 0.28, 0.15];
 const DARK_WOOD = [0.28, 0.17, 0.09];
 const LANTERN = [1.0, 0.78, 0.42];
 
+// A Boatyard boat: its design (boxes) in the chosen paints, plus the lantern at the top.
+// Glow paints make the painted parts emissive, so they shine in the dark.
+export function designBoatMesh(gl, design, paint, stats) {
+  const b = new MeshBuilder();
+  const box = b.box.bind(b);
+  b.box = (x, y, z, w, h, d, color, em = 0) => {
+    if (color === paint.hull) em = Math.max(em, paint.hullGlow);
+    if (color === paint.trim) em = Math.max(em, paint.trimGlow);
+    return box(x, y, z, w, h, d, color, em);
+  };
+  design(b, paint);
+  // A pole from the deck up to the lantern, so it never floats in mid-air.
+  const poleBottom = 0.35, poleTop = stats.lanternY - 0.16;
+  box(0, (poleBottom + poleTop) / 2, stats.lanternZ, 0.07, poleTop - poleBottom, 0.07, paint.dark);
+  box(0, stats.lanternY, stats.lanternZ, 0.28, 0.32, 0.28, LANTERN, 1);
+  box(0, stats.lanternY + 0.2, stats.lanternZ, 0.36, 0.06, 0.36, [0.15, 0.12, 0.1]);
+  return b.build(gl);
+}
+
 // The boat's bow points along +Z.
 export function boatMesh(gl) {
   return new MeshBuilder()

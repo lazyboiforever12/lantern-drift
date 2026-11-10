@@ -375,6 +375,11 @@ export class Renderer {
       // Boatyard preview: a close, low camera on the boat.
       eye = [b.x + 1.8, 5.4, b.z + 6.6];
       target = [b.x, 0.9, b.z];
+    } else if (this.cinematic) {
+      // Title screen: a slow orbit around the demo boat, lower and closer than in play.
+      const a = time * 0.11;
+      eye = [this.cam.x + Math.sin(a) * 12, 9.5, this.cam.z + Math.cos(a) * 12];
+      target = [this.cam.x, 0.6, this.cam.z];
     }
     const aspect = this.canvas.width / Math.max(1, this.canvas.height);
     // 48 degrees tall normally. On narrow (portrait) screens, widen it so you can still see
@@ -475,7 +480,7 @@ export class Renderer {
     }
 
     // Particles last: they glow on top and don't hide anything behind them.
-    this.emitAmbient(game, dt, playing);
+    this.emitAmbient(game, dt, playing || this.cinematic);
     this.particles.update(dt);
     const fwd = norm([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);
     const right = norm(cross3(fwd, [0, 1, 0]));

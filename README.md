@@ -140,6 +140,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 ### Dev tools
 - `node --test tests/game.test.mjs` (or `npm test`) runs 30 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
+- `src/autopilot.js` is the bot that sails the title-screen demo; the play-test tool uses the same code.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
   and prints win rates, time and oil left. It was used to tune difficulty so each level is a bit harder than the last.
   `VOYAGES=1 node tools/autoplay.mjs` does the same for generated voyages at depths 0 to 11, plus a month of Daily Voyages.
@@ -173,6 +174,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Live title screen: the autopilot sails the levels behind the menu with an orbiting camera
 - [x] Whirlpools and ember shards (in the editor, voyages and every story level), wall foam and ambient occlusion
 - [x] Town detail (roofs, chimneys, windows, piers, moored boats, lamp posts) and 23 achievements
 - [x] Level editor v2: box and fill tools, mirror, undo/redo, name/difficulty/twist in share links, random maps, guide and tips

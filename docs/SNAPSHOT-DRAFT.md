@@ -93,3 +93,5 @@ Mipmap captions are limited to 500 characters; this one is 446.
 - Whirlpools (pull, swirl, spit you out for oil; stun shadows dragged in) and ember shards (optional Embers),
   in the editor, generated voyages (whirlpools from voyage 3) and three shards in every story level.
   Bot-tested: no stuck runs. 30 tests.
+- Live title screen: the play-test bot moved into `src/autopilot.js` and now sails the story levels behind the
+  menu with a slow orbiting camera (visual only: no sound, Embers or achievements).

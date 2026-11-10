@@ -91,6 +91,9 @@ canvas {
   padding: 16px;
   background: radial-gradient(#0006, #000d);
 }
+/* The title menu sits over the live demo, so keep the middle clear and darken the edges. */
+#screen[data-screen="title"] { background: radial-gradient(ellipse at center, #0000 20%, #0008 75%, #000c); }
+#screen[data-screen="title"] h1, #screen[data-screen="title"] p, #screen[data-screen="title"] li { text-shadow: 0 1px 6px #000, 0 0 2px #000; }
 #screen.hidden { display: none; }
 #screen h1 {
   font-size: clamp(36px, 7vw, 64px);

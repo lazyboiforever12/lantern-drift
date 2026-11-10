@@ -8,6 +8,7 @@ import { BOATS, boatById, boatStats, boatPaint, defaultBoatyard } from './boats.
 import { Sound } from './audio.js';
 import { generateVoyage, dailyVoyage, todayKey } from './voyages.js';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
+import { createAutopilot } from './autopilot.js';
 
 const canvas = document.getElementById('game');
 const hudEl = document.getElementById('hud');
@@ -522,8 +523,30 @@ function toTitle() {
   editor.close();
   state = 'title';
   levelIndex = 0;
-  game = newGame(LEVELS[0], 0);
+  startDemo();
   showScreen('title');
+}
+
+// ---------- Title demo ----------
+// Behind the title menu the autopilot sails the story levels one after another, with a slow
+// orbiting camera. It's only a show: no sound, Embers, achievements or saved progress.
+let demo = null;
+let demoLevel = 0;
+function startDemo() {
+  demoLevel = (demoLevel + 1) % LEVELS.length;
+  game = newGame(LEVELS[demoLevel], demoLevel);
+  demo = { game, think: createAutopilot(game), input: null, timer: 0 };
+}
+const inMenus = () => state === 'title' || state === 'awards' || (state === 'settings' && settingsFrom === 'title');
+function updateDemo(dt) {
+  if (!demo || demo.game !== game) startDemo();
+  demo.timer -= dt;
+  if (demo.timer <= 0 || !demo.input) { demo.input = demo.think(); demo.timer = 0.12; }
+  if (demo.input.flare) { game.flare(); demo.input.flare = false; }
+  game.update(dt, demo.input);
+  for (const ev of game.events) renderer.effect(ev, game); // just the particles
+  game.events.length = 0;
+  if (game.result || game.time > 100) startDemo();
 }
 
 // ---------- Input ----------
@@ -891,6 +914,8 @@ function tick(dt) {
       sound.play('firework');
     }
   }
+  renderer.cinematic = inMenus();
+  if (renderer.cinematic) updateDemo(dt);
   if (state === 'playing') {
     playTimer += dt;
     if (playTimer >= 10) { awards.record('playTime', 10); playTimer -= 10; writeSave(); }
@@ -996,6 +1021,7 @@ window.lanternDrift = {
 loopReady = true;
 applySettings();
 showBoat(yard.equipped);
+startDemo();
 showScreen('title');
 // A shared level link (#level=CODE) opens straight into the editor with that level.
 if (location.hash.startsWith('#level=')) {

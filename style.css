@@ -96,6 +96,7 @@ canvas {
 #screen[data-screen="title"] h1, #screen[data-screen="title"] p, #screen[data-screen="title"] li { text-shadow: 0 1px 6px #000, 0 0 2px #000; }
 #screen.hidden { display: none; }
 #screen[data-screen="photo"] { background: none; justify-content: flex-end; pointer-events: none; }
+#screen .photo-hint { pointer-events: auto; cursor: pointer; }
 #screen .photo-hint { font-size: 13px; padding: 6px 14px; border-radius: 999px; background: #000a; opacity: 0.85; }
 #screen h1 {
   font-size: clamp(36px, 7vw, 64px);
@@ -115,7 +116,7 @@ canvas {
 
 /* Run timer and pause button */
 #hud .timer { left: 50%; transform: translateX(-50%); font-variant-numeric: tabular-nums; opacity: 0.85; }
-#hud .pause-btn {
+#hud .pause-btn, #hud .photo-btn {
   position: absolute;
   top: 36px;
   right: 16px;
@@ -128,6 +129,8 @@ canvas {
   padding: 3px 9px;
   cursor: pointer;
 }
+
+#hud .photo-btn { right: 52px; padding: 2px 7px; }
 
 /* Level select on the title screen */
 #screen .pick { margin: 22px 0 6px; opacity: 0.7; font-size: 14px; }

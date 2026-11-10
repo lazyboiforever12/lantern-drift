@@ -17,7 +17,7 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 | Restart level | R | | |
 | Back to title (when paused) | Q | B | |
 | Settings (title or pause) | O | Y | tap "O settings" |
-| Photo mode (while playing) | C, then drag / WASD to orbit, scroll / Q E to zoom, F9 to save | | |
+| Photo mode (while playing) | C, then drag / WASD to orbit, scroll / Q E to zoom, F9 to save | | 📷 button, drag to orbit |
 | Mute | M | | |
 | Frame rate counter | F3 | | |
 
@@ -27,6 +27,7 @@ On the title screen, press a number (or click a level) to replay any level you'v
 ## Daily Voyage and Endless
 - **Daily Voyage:** a new generated town every day, the same for every player (the date is the seed).
   Beat it for Embers, set your best time for the day, and keep a streak going by clearing it on consecutive days.
+  Press **S** on the result screen to copy a spoiler-free summary (time, oil, shards, streak) with a link, to share with friends.
 - **Endless:** voyage after voyage, each further out and harder: bigger maps, more and faster shadows,
   and twists (strong currents, buoys that burn out, storms). It ends when your lantern goes out. Your best run is saved.
 - Voyages are built by `src/voyages.js` from a seeded random number generator, and every map has to pass the same

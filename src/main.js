@@ -201,6 +201,7 @@ hudEl.innerHTML = `
   <span class="timer"></span>
   <span class="wind hidden" title="Wind">↑</span>
   <button class="pause-btn" aria-label="Pause">II</button>
+  <button class="photo-btn" aria-label="Photo mode" title="Photo mode (C)">\u{1F4F7}</button>
   <span class="oil-label">Oil</span><span class="oil"><i></i></span>
   <span class="buoys"></span>
   <span class="hint">WASD / arrows steer · Space flare · P pause · M mute</span>
@@ -328,14 +329,14 @@ const SCREENS = {
     <p class="sub">${lastClear.newBest ? '<b class="best">New best run!</b>' : `Best run: ${save.endlessBest || 0} voyage${save.endlessBest === 1 ? '' : 's'}`}</p>
     ${emberLine()}
     <p class="go">Press Enter for a new run</p>
-    <p class="small">Esc back to the title</p>`,
+    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 Esc back to the title</p>`,
   dailyClear: () => `
     <h1>Daily Voyage complete</h1>
     <p class="sub">${game.def.name} \u00b7 ${formatTime(lastClear.time)} ${lastClear.best ? '\u00b7 <b class="best">Your best today!</b>' : `\u00b7 best ${formatTime(save.daily[voyage.date])}`}</p>
     <p class="sub">Streak: <b>${save.dailyStreak} day${save.dailyStreak === 1 ? '' : 's'}</b> \u2014 a new voyage appears at midnight</p>
     ${emberLine()}
     <p class="go">Press Enter to sail it again</p>
-    <p class="small">Esc back to the title</p>`,
+    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 Esc back to the title</p>`,
   awards: () => `
     <h1>Achievements</h1>
     <p class="sub">${awards.count} of ${ACHIEVEMENTS.length} unlocked \u00b7 each one pays Embers</p>
@@ -528,6 +529,28 @@ function toTitle() {
   showScreen('title');
 }
 
+// ---------- Sharing a result ----------
+// A short, spoiler-free summary (like a word-game result) with a link back to the game.
+async function shareResult() {
+  const url = `${location.origin}${location.pathname}`;
+  let text;
+  if (voyage && voyage.kind === 'daily') {
+    text = `Lantern Drift \u00b7 Daily Voyage ${voyage.date}\n`
+      + `\u23F1 ${formatTime(lastClear.time)} \u00b7 \u{1F6E2} oil ${Math.round(game.oilPct)}%`
+      + `${game.shards.length ? ` \u00b7 \u2726 ${game.shardsTaken}/${game.shards.length}` : ''}`
+      + `${save.dailyStreak > 1 ? ` \u00b7 \u{1F525} ${save.dailyStreak} days` : ''}\n${url}`;
+  } else if (voyage) {
+    text = `Lantern Drift \u00b7 Endless: my lantern lasted to voyage ${voyage.depth + 1} `
+      + `(${'\u{1F7E8}'.repeat(Math.min(voyage.depth, 15))}\u2B1B)\n${url}`;
+  } else return;
+  try {
+    await navigator.clipboard.writeText(text);
+    say('Result copied! Paste it anywhere to share', 2.5);
+  } catch {
+    prompt('Copy your result:', text);
+  }
+}
+
 // ---------- Photo mode ----------
 // Freezes the game (the water and particles keep moving) and hands the camera to the player.
 const photoCam = { yaw: 0, pitch: 0.6, dist: 9 };
@@ -688,11 +711,13 @@ function onPress(code, e) {
       else if (code === 'Escape') toTitle();
       break;
     case 'voyageOver':
-      if (go) startVoyage('endless');
+      if (code === 'KeyS') shareResult();
+      else if (go) startVoyage('endless');
       else if (code === 'Escape') toTitle();
       break;
     case 'dailyClear':
-      if (go) restart();
+      if (code === 'KeyS') shareResult();
+      else if (go) restart();
       else if (code === 'Escape') toTitle();
       break;
     case 'gameOver':
@@ -713,7 +738,7 @@ function onPress(code, e) {
       else if (code === 'KeyQ') { if (customDef) openEditor(); else toTitle(); }
       break;
     case 'photo':
-      if (code === 'KeyC' || code === 'Escape' || code === 'KeyP') exitPhoto();
+      if (code === 'KeyC' || code === 'Escape' || code === 'KeyP' || code === 'Enter') exitPhoto();
       break;
     case 'playing':
       if (code === 'KeyC') { enterPhoto(); break; }
@@ -796,6 +821,10 @@ for (const b of touchEl.querySelectorAll('button')) {
   b.addEventListener('pointercancel', release);
 }
 addEventListener('touchstart', () => touchEl.classList.remove('hidden'), { once: true, passive: true });
+hudEl.querySelector('.photo-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (state === 'playing') enterPhoto();
+});
 hudEl.querySelector('.pause-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (state === 'playing') onPress('KeyP');
@@ -807,6 +836,10 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-action="share"]')) {
+    shareResult();
+  } else if (state === 'photo') {
+    exitPhoto();
   } else if (e.target.closest('[data-action="awards"]')) {
     onPress('KeyA');
   } else if (e.target.closest('[data-action="daily"]')) {

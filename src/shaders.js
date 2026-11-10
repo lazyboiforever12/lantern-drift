@@ -97,6 +97,32 @@ uniform int uOccluderCount;
 uniform vec4 uOccluders[MAX_OCCLUDERS]; // xyz centre, w radius
 uniform float uFog;                      // density of the lit mist; 0 turns it off
 uniform float uTime;                     // seconds, for the lapping foam
+uniform float uRain;                     // 1 while it rains: raindrop rings on the water
+
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+// Fine detail for the water's surface, as a tilt of the normal (x and z). Three small wind
+// ripples, each a cosine with an exact slope, plus rings spreading from raindrops: the water is
+// split into cells, each with a drop landing at a random moment and place, and the ring is a
+// thin band around a growing radius.
+vec2 waterDetail(vec2 p) {
+  vec2 g = vec2(0.8, 0.6) * cos(dot(p, vec2(0.8, 0.6)) * 3.1 + uTime * 2.3) * 0.05;
+  g += vec2(-0.5, 0.86) * cos(dot(p, vec2(-0.5, 0.86)) * 4.7 + uTime * 2.9) * 0.035;
+  g += vec2(0.2, -0.98) * cos(dot(p, vec2(0.2, -0.98)) * 6.3 + uTime * 3.7) * 0.025;
+  if (uRain > 0.0) {
+    for (int k = 0; k < 2; k++) {
+      vec2 q = p * 1.4 + float(k) * 17.3;
+      vec2 id = floor(q);
+      float h = hash2(id);
+      float t = fract(uTime * 0.8 + h);
+      vec2 d = fract(q) - 0.5 - (vec2(hash2(id + 3.1), hash2(id + 7.7)) - 0.5) * 0.5;
+      float r = length(d);
+      float band = exp(-pow((r - t * 0.45) * 22.0, 2.0)) * (1.0 - t);
+      g += d / max(r, 0.001) * band * 0.5 * uRain;
+    }
+  }
+  return g;
+}
 
 out vec4 outColor;
 
@@ -212,6 +238,10 @@ void main() {
   // In the mirrored (reflection) pass, nothing below the water line should show.
   if (uClip == 1 && vWorld.y < -0.02) discard;
   vec3 n = normalize(vNormal);
+  if (uWater == 1) {
+    vec2 g = waterDetail(vWorld.xz);
+    n = normalize(n + vec3(g.x, 0.0, g.y));
+  }
   vec3 base = vColor * uTint;
   if (uTexSide >= 0 && vEmissive < 0.01) base *= surfaceTexture();
   vec3 V = normalize(uCamPos - vWorld);

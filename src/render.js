@@ -19,6 +19,10 @@ const NO_TEX = [-1, -1, 1];
 const MIRROR_Y = new Float32Array([1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const WAKE_LIFE = 1.4;   // seconds a fleck of foam lasts
 const WAKE_MAX = 60;
+// Height of the water at (x, z): the same three waves as the water vertex shader (shaders.js),
+// so floating things ride the swell instead of hovering over the troughs.
+export const waveHeight = (x, z, t) =>
+  0.12 * Math.sin(x * 0.6 + t * 1.3) + 0.10 * Math.cos(z * 0.5 + t * 1.1) + 0.04 * Math.sin((x + z) * 1.3 + t * 2.0);
 // Where the moon hangs: north-west and fairly low, so it shows in photos and on the water.
 const MOON = (() => { const m = [-0.38, 0.5, -0.78]; const l = Math.hypot(...m); return m.map((v) => v / l); })();
 
@@ -33,7 +37,7 @@ export class Renderer {
       'uViewProj', 'uModel', 'uTime', 'uWater', 'uTint', 'uEmissiveBoost', 'uCamPos',
       'uAmbient', 'uMoonDir', 'uMoonColor', 'uLightCount', 'uLightPos', 'uLightColor', 'uLightRadius',
       'uTextures', 'uTexSide', 'uTexTop', 'uTexScale', 'uReflection', 'uReflect', 'uViewport', 'uClip',
-      'uHeightMap', 'uGridSize', 'uCell', 'uRayShadows', 'uOccluderCount', 'uOccluders', 'uFog',
+      'uHeightMap', 'uGridSize', 'uCell', 'uRayShadows', 'uOccluderCount', 'uOccluders', 'uFog', 'uRain',
     ];
     this.u = {};
     for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
@@ -485,6 +489,7 @@ export class Renderer {
     gl.uniform4fv(u.uOccluders, this.occluders);
     const mist = { fog: 0.075, clear: 0.015, snow: 0.03 }[weather] || 0.035;
     gl.uniform1f(u.uFog, this.settings.fog && this.autoLevel < 2 ? mist : 0);
+    gl.uniform1f(u.uRain, this.settings.rain && weather === 'rain' ? 1 : 0);
 
     const m = this.meshes;
     const lh = game.lighthouse;
@@ -608,7 +613,7 @@ export class Renderer {
       glow: game.lighthouseActive ? 2.5 : 0.25, tex: [TEX.stone, TEX.stone, 1.5],
     });
     game.buoys.forEach((bu, i) => {
-      const bob = Math.sin(time * 2 + i) * 0.06;
+      const bob = waveHeight(bu.x, bu.z, time);
       this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
         glow: bu.lit ? 2 * game.buoyStrength(bu) : 0.35 + 0.25 * Math.sin(time * 3 + i),
       });
@@ -623,9 +628,9 @@ export class Renderer {
     });
     game.oils.forEach((o, i) => {
       if (o.taken) return;
-      this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
+      this.drawMesh(m.oil, model(o.x, 0.3 + waveHeight(o.x, o.z, time) + Math.sin(time * 3 + i) * 0.04, o.z, time * 1.5), { glow: 0.8 });
     });
-    const bob = Math.sin(time * 2.2) * 0.08;
+    const bob = waveHeight(b.x, b.z, time) - 0.08 + Math.sin(time * 2.2) * 0.02; // sits a little into the water
     const tilt = this.tilt || { roll: 0, pitch: 0 };
     const boatModel = multiply(multiply(model(b.x, bob, b.z, b.angle), pivotRotate(0, 0.2, 0, 'z', tilt.roll)), pivotRotate(0, 0.2, 0, 'x', tilt.pitch));
     this.drawMesh(m.boat, boatModel, { glow: 0.6 + 0.6 * (game.oilPct / 100), tex: [TEX.wood, TEX.wood, 2.0] });

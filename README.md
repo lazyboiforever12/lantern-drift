@@ -79,6 +79,8 @@ Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and shar
 - **Whirlpools** pull in your boat and the shadows. Skim the edge for a slingshot; get caught in the middle and you're
   spat out with less oil. Lure a shadow into one and it's stunned.
 - **Ember shards** are optional treasure: each one pays Embers. Every story level hides three, and voyages have more.
+- **Ghost boats:** your best run on each story level (and today's Daily Voyage) is recorded ten times a second, and
+  next time a pale blue ghost boat sails it beside you. Race yourself, or switch it off in Settings.
 - A **minimap** in the corner shows walls, currents, buoys (red until lit), shards, the lighthouse and your boat.
   Shadows aren't on it, so you still have to keep watch. It can be switched off in Settings.
 - Your progress and best time for each level are saved in the browser.
@@ -201,6 +203,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
 - [x] Levels 7 and 8: The Frozen Quay and Whirlpool Reach (bot-tuned; sloppy-bot curve 100/100/75/83/67/50/50/42/33%)
+- [x] Ghost boats of your best runs, pause menu buttons, tappable result screens, gamepad menu controls
 - [x] Minimap (Canvas 2D overlay)
 - [x] New shadows: wisps and brutes (editor, voyages, achievement)
 - [x] Endless blessings: pick 1 of 3 run upgrades after each voyage

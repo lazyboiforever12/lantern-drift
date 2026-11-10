@@ -118,3 +118,6 @@ Caption: 473 characters.
 - Two new story levels before the finale, hand-made and bot-tuned: The Frozen Quay (snow, wisps, a brute) and
   Whirlpool Reach (whirlpools, currents, wisps). Saves migrate (Lighthouse Point moved from slot 7 to 9).
   Sloppy-bot win rates across the nine levels: 100/100/75/83/67/50/50/42/33%.
+- Cache-busting import map (`tools/stamp.mjs`, checked by a test). Water detail: wind ripples, raindrop rings; the
+  boat, buoys and oil ride the waves. Pause menu buttons and tappable result screens for touch; gamepad menu controls.
+- Ghost boats: best runs recorded at 10 Hz and replayed as a self-lit pale blue boat. 36 tests.

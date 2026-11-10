@@ -37,7 +37,7 @@ export class Renderer {
       'uViewProj', 'uModel', 'uTime', 'uWater', 'uTint', 'uEmissiveBoost', 'uCamPos',
       'uAmbient', 'uMoonDir', 'uMoonColor', 'uLightCount', 'uLightPos', 'uLightColor', 'uLightRadius',
       'uTextures', 'uTexSide', 'uTexTop', 'uTexScale', 'uReflection', 'uReflect', 'uViewport', 'uClip',
-      'uHeightMap', 'uGridSize', 'uCell', 'uRayShadows', 'uOccluderCount', 'uOccluders', 'uFog', 'uRain',
+      'uHeightMap', 'uGridSize', 'uCell', 'uRayShadows', 'uOccluderCount', 'uOccluders', 'uFog', 'uRain', 'uSelfLit',
     ];
     this.u = {};
     for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
@@ -637,6 +637,18 @@ export class Renderer {
     for (const p of this.boatParts || []) {
       this.drawMesh(p.mesh, multiply(boatModel, pivotRotate(p.pivot[0], p.pivot[1], p.pivot[2], p.axis, p.angle)), { glow: 0.8 });
     }
+    // The ghost of your best run: a pale blue boat replaying the recorded path (10 samples a second).
+    if (this.ghost && this.ghost.length >= 6) {
+      const g = this.ghost;
+      const f = game.time / 0.1;
+      const i = Math.floor(f);
+      if (i < g.length / 3 - 1) {
+        const k = f - i, a = i * 3, n = a + 3;
+        const turn = Math.atan2(Math.sin(g[n + 2] - g[a + 2]), Math.cos(g[n + 2] - g[a + 2]));
+        const gx = g[a] + (g[n] - g[a]) * k, gz = g[a + 1] + (g[n + 1] - g[a + 1]) * k;
+        this.drawMesh(m.boat, model(gx, waveHeight(gx, gz, time) - 0.08, gz, g[a + 2] + turn * k), { tint: [0.35, 0.6, 1.3], glow: 0.12, selfLit: 0.9 });
+      }
+    }
     for (const c of game.creatures) {
       const facing = Math.atan2(c.vx, c.vz);
       const stunned = c.stun > 0;
@@ -705,8 +717,9 @@ export class Renderer {
   }
 
   // tex: [wall layer, roof layer, repeats per unit], or omitted for no texture.
-  drawMesh(mesh, modelMatrix, { water = false, tint = WHITE, glow = 1, tex = NO_TEX } = {}) {
+  drawMesh(mesh, modelMatrix, { water = false, tint = WHITE, glow = 1, tex = NO_TEX, selfLit = 0 } = {}) {
     const gl = this.gl;
+    gl.uniform1f(this.u.uSelfLit, selfLit);
     gl.uniform1i(this.u.uTexSide, tex[0]);
     gl.uniform1i(this.u.uTexTop, tex[1]);
     gl.uniform1f(this.u.uTexScale, tex[2]);

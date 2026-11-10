@@ -70,6 +70,36 @@ function writeSave() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage blocked: progress just isn't kept */ }
 }
 // Called when a level is cleared. Returns true if it was a new best time.
+// ---------- Ghosts ----------
+// While you play a story level or the Daily Voyage, the boat's position is recorded ten times a
+// second. A new best time keeps that recording, and next time a pale ghost boat replays it.
+const GHOST_STEP = 0.1;
+let ghostRec = null;
+function ghostKey() {
+  if (voyage) return voyage.kind === 'daily' ? 'daily' : null;
+  return customDef ? null : `L${levelIndex}`;
+}
+function recordGhost() {
+  if (!ghostRec || ghostRec.game !== game) ghostRec = { game, data: [] };
+  const b = game.boat;
+  const r = (v) => Math.round(v * 100) / 100;
+  while (ghostRec.data.length / 3 <= Math.floor(game.time / GHOST_STEP)) ghostRec.data.push(r(b.x), r(b.z), r(b.angle));
+}
+function keepGhost() {
+  const key = ghostKey();
+  if (!key || !ghostRec || ghostRec.game !== game) return;
+  save.ghosts = save.ghosts || {};
+  save.ghosts[key] = { date: voyage ? voyage.date : undefined, data: ghostRec.data };
+  writeSave();
+}
+// The ghost to show for what's being played now (today's only, for the Daily Voyage).
+function currentGhost() {
+  const key = settings.ghost && ghostKey();
+  const g = key && save.ghosts && save.ghosts[key];
+  if (!g || (key === 'daily' && g.date !== voyage.date)) return null;
+  return g.data;
+}
+
 function recordClear(i, seconds) {
   save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, i + 2));
   const old = save.best[i];
@@ -87,7 +117,7 @@ let fireworkTimer = 0;
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
 const settings = {
   bloom: true, reflections: true, rtShadows: true, fog: true, resolution: 'auto', fpsCap: 'vsync',
-  shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false, minimap: true,
+  shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false, minimap: true, ghost: true,
 };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* defaults */ }
 function applySettings() {
@@ -128,6 +158,7 @@ const SETTING_ROWS = [
   { key: 'sound', label: 'Sound volume', type: 'level' },
   { key: 'music', label: 'Music volume', type: 'level' },
   { key: 'minimap', label: 'Minimap', type: 'bool' },
+  { key: 'ghost', label: 'Ghost of your best run', type: 'bool' },
   { key: 'fps', label: 'Show frame rate', type: 'bool' },
   { key: 'back', label: 'Back', type: 'back' },
 ];
@@ -492,7 +523,10 @@ function finishVoyage(won) {
   const today = voyage.date;
   const old = save.daily[today];
   const best = old === undefined || game.time < old;
-  if (best) save.daily[today] = game.time;
+  if (best) {
+    save.daily[today] = game.time;
+    keepGhost();
+  }
   let embers = 0;
   if (save.dailyLast !== today) {
     save.dailyStreak = save.dailyLast && daysBetween(save.dailyLast, today) === 1 ? (save.dailyStreak || 0) + 1 : 1;
@@ -1097,6 +1131,7 @@ function tick(dt) {
   // The weather's sound follows whatever level is on screen (the title demo too).
   const weather = game.def.storm ? 'storm' : game.def.weather || 'rain';
   sound.setWeather(settings.rain && state !== 'editor' && state !== 'shop' ? weather : 'none');
+  renderer.ghost = state === 'playing' || state === 'paused' || state === 'photo' ? currentGhost() : null;
   renderer.cinematic = inMenus();
   if (renderer.cinematic) updateDemo(dt);
   if (state === 'photo') updatePhoto(dt);
@@ -1114,6 +1149,7 @@ function tick(dt) {
   }
   if (state === 'playing') {
     game.update(dt, readInput(pad));
+    recordGhost();
     for (const ev of game.events) handleEvent(ev);
     game.events.length = 0;
     if (game.result && voyage) {
@@ -1132,6 +1168,7 @@ function tick(dt) {
     } else if (game.result === 'won') {
       const first = save.best[levelIndex] === undefined;
       lastClear = { time: game.time, best: recordClear(levelIndex, game.time) };
+      if (lastClear.best) keepGhost();
       run.time += game.time;
       // Embers: more for later levels, oil left over, a first clear, and a new best time.
       let embers = 25 + 10 * levelIndex + Math.round(game.oilPct / 4);

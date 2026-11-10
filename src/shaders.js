@@ -98,6 +98,7 @@ uniform vec4 uOccluders[MAX_OCCLUDERS]; // xyz centre, w radius
 uniform float uFog;                      // density of the lit mist; 0 turns it off
 uniform float uTime;                     // seconds, for the lapping foam
 uniform float uRain;                     // 1 while it rains: raindrop rings on the water
+uniform float uSelfLit;                  // glows by itself (the ghost boat), even far from any lamp
 
 float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -296,6 +297,7 @@ void main() {
   }
 
   lit += vColor * vEmissive * uEmissiveBoost;
+  lit += base * uSelfLit;
 
   if (water && uReflect == 1) {
     // Look up the mirrored scene at this pixel, nudged by the wave normal so it ripples.

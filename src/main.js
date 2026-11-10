@@ -437,7 +437,10 @@ function levelList() {
   const items = LEVELS.map((def, i) => {
     const locked = i >= save.unlocked;
     const best = save.best[i] !== undefined ? ` · best ${formatTime(save.best[i])}` : '';
-    return `<li class="${locked ? 'locked' : ''}" data-level="${i}"><b>${i + 1}</b> ${locked ? '???' : def.name + best}</li>`;
+    const total = def.map.join('').split('e').length - 1;
+    const found = (save.shards && save.shards[i]) || 0;
+    const shards = total && save.best[i] !== undefined ? ` <span class="${found === total ? 'all' : ''}">✦ ${found}/${total}</span>` : '';
+    return `<li class="${locked ? 'locked' : ''}" data-level="${i}"><b>${i + 1}</b> ${locked ? '???' : def.name + best + shards}</li>`;
   }).join('');
   return `<p class="pick">Or press a number to pick a level</p><ol class="levels">${items}</ol>`;
 }
@@ -1169,6 +1172,10 @@ function tick(dt) {
       const first = save.best[levelIndex] === undefined;
       lastClear = { time: game.time, best: recordClear(levelIndex, game.time) };
       if (lastClear.best) keepGhost();
+      // The most ember shards found in one clear of this level, for the level list.
+      save.shards = save.shards || {};
+      save.shards[levelIndex] = Math.max(save.shards[levelIndex] || 0, game.shardsTaken);
+      writeSave();
       run.time += game.time;
       // Embers: more for later levels, oil left over, a first clear, and a new best time.
       let embers = 25 + 10 * levelIndex + Math.round(game.oilPct / 4);

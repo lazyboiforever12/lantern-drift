@@ -161,6 +161,8 @@ canvas {
 #screen .levels li:hover { background: #ffd27a22; }
 #screen .levels li b { color: #ffd27a; margin-right: 6px; }
 #screen .levels li.locked { opacity: 0.35; cursor: default; }
+#screen .levels li span { opacity: 0.7; }
+#screen .levels li span.all { opacity: 1; color: #ffd27a; }
 #screen .levels li.locked:hover { background: none; }
 #screen .best { color: #9fe8d6; }
 

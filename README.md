@@ -95,6 +95,9 @@ Then open http://localhost:5173
   skim a roof get a soft penumbra. The shadow creatures are traced too, as soft spheres, so the lantern throws their
   shadows across the water and walls. Cheap early-outs keep it fast: lights that add almost nothing are skipped, and a
   ray stops once it climbs above the tallest roof (a test checks the meshes and the shader agree on that height).
+- **Foam and ambient occlusion:** the same height grid gives each water pixel its distance to the nearest wall,
+  so water lapping against buildings gets an animated foam line (which hides the reflection, like real foam), and
+  water hemmed in by walls, and the bottoms of brick walls, get darker ambient light.
 - **Volumetric light:** the rain mist glows around the lantern, flares and the lighthouse. Instead of ray-marching fog,
   the shader uses the closed-form integral of a point light's falloff along the view ray (an arctangent).
 - **Resolution and frame rate:** Settings has Auto, Native, 1080p, 1440p and 4K rendering (the scene renders at that

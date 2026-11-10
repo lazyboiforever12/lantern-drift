@@ -96,6 +96,7 @@ uniform int uRayShadows;
 uniform int uOccluderCount;
 uniform vec4 uOccluders[MAX_OCCLUDERS]; // xyz centre, w radius
 uniform float uFog;                      // density of the lit mist; 0 turns it off
+uniform float uTime;                     // seconds, for the lapping foam
 
 out vec4 outColor;
 
@@ -151,6 +152,24 @@ float traceGrid(vec3 p, vec3 lp) {
   return vis;
 }
 
+// Distance across the water (in x and z) from p to the nearest building, checking the 3 x 3 cells
+// around it. Used for foam where water laps against walls, and for ambient occlusion.
+float wallDistance(vec3 p) {
+  vec2 a = p.xz / uCell;
+  ivec2 c = ivec2(floor(a));
+  float best = 9.0;
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+      ivec2 q = c + ivec2(dx, dy);
+      if (cellHeight(q) < -50.0) continue;
+      vec2 lo = vec2(q) * uCell, hi = lo + uCell;
+      vec2 d = max(max(lo - p.xz, p.xz - hi), 0.0);
+      best = min(best, length(d));
+    }
+  }
+  return best;
+}
+
 // Soft shadow of a sphere along a ray (ro, unit rd) up to distance tMax.
 float sphereShadow(vec3 ro, vec3 rd, vec4 s, float tMax) {
   vec3 oc = ro - s.xyz;
@@ -200,8 +219,26 @@ void main() {
   float shininess = water ? 70.0 : 18.0;
   float specAmount = water ? 1.4 : 0.12;
 
-  vec3 lit = uAmbient * base;
-  lit += uMoonColor * base * max(dot(n, uMoonDir), 0.0);
+  // Ambient occlusion: water hemmed in by walls, and the bottoms of walls, get less light.
+  // Foam: a lapping white line where the water meets a wall.
+  float ao = 1.0;
+  float foam = 0.0;
+  if (uGridSize.x > 0) {
+    if (water) {
+      float wd = wallDistance(vWorld);
+      ao = mix(0.35, 1.0, smoothstep(0.0, 1.4, wd));
+      float edge = 0.32 + 0.12 * sin(uTime * 1.7 + vWorld.x * 2.1 + vWorld.z * 1.7);
+      foam = (1.0 - smoothstep(0.03, edge, wd)) * (0.65 + 0.35 * sin(uTime * 3.0 + (vWorld.x + vWorld.z) * 4.0));
+      base = mix(base, vec3(0.8, 0.88, 0.92), foam * 0.75);
+      specAmount *= 1.0 - foam * 0.7;
+    } else if (uTexSide == 0) {
+      ao = mix(0.45, 1.0, smoothstep(-0.3, 0.9, vWorld.y)); // brick walls darken towards the water
+    }
+  }
+
+  vec3 lit = uAmbient * base * ao;
+  lit += uMoonColor * base * max(dot(n, uMoonDir), 0.0) * ao;
+  lit += uMoonColor * foam * 2.5; // foam catches the moonlight even far from any lamp
   if (water) {
     vec3 H = normalize(uMoonDir + V);
     lit += uMoonColor * 2.0 * pow(max(dot(n, H), 0.0), 200.0);
@@ -213,7 +250,7 @@ void main() {
     float d = length(L);
     L /= max(d, 0.0001);
     float att = clamp(1.0 - d / uLightRadius[i], 0.0, 1.0);
-    att *= att;
+    att *= att * (0.5 + 0.5 * ao);
     if (att <= 0.0) continue;
     float facing = dot(n, L);
     if (facing <= 0.0 && !water) continue;  // faces away: no light to shadow
@@ -239,7 +276,7 @@ void main() {
     refl = refl / (1.0 - refl);
     // Fresnel: water reflects more at grazing angles.
     float fres = 0.35 + 0.65 * pow(1.0 - max(dot(n, V), 0.0), 3.0);
-    lit += refl * fres * 1.5;
+    lit += refl * fres * 1.5 * (1.0 - foam * 0.8); // foam is opaque: it hides the reflection
   }
 
   if (uFog > 0.0 && uClip == 0) {

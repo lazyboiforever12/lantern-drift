@@ -24,6 +24,10 @@ export const WHIRL_RADIUS = 3.4;  // how far a whirlpool's pull reaches
 const WHIRL_CORE = 0.8;      // caught in the middle: spat out (the boat loses oil, a shadow is stunned)
 const WHIRL_COST = 8;
 const SHARD_EMBERS = 3;
+export const DASH_TIME = 0.45;     // seconds of boost
+const DASH_COOLDOWN = 2.2;
+const DASH_COST = 4;
+const DASH_SPEED = 1.7;            // top speed multiplier while dashing
 
 export class Game {
   // stats: the boat's performance from the Boatyard (defaults to the starter skiff).
@@ -47,6 +51,8 @@ export class Game {
     this.lighthouseActive = false;
     this.flareTime = 0;
     this.flareCooldown = 0;
+    this.dashTime = 0;
+    this.dashCooldown = 0;
     this.hitFlash = 0;
     this.time = 0;
     this.result = null; // 'won' or 'lost'
@@ -174,6 +180,15 @@ export class Game {
     return ch === '#' || ch === 'L';
   }
 
+  // A short burst of speed for a little oil: good for escaping a lunge or crossing a current.
+  dash() {
+    if (this.result || this.dashCooldown > 0 || this.oil < DASH_COST + 1) return;
+    this.oil -= DASH_COST;
+    this.dashTime = DASH_TIME;
+    this.dashCooldown = DASH_COOLDOWN;
+    this.events.push({ type: 'dash' });
+  }
+
   flare() {
     if (this.result || this.flareCooldown > 0) return;
     const st = this.stats;
@@ -207,6 +222,8 @@ export class Game {
     if (this.storm) this.updateStorm(dt);
     this.flareTime = Math.max(0, this.flareTime - dt);
     this.flareCooldown = Math.max(0, this.flareCooldown - dt);
+    this.dashTime = Math.max(0, this.dashTime - dt);
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt);
 
     this.updateBoat(dt, input);
@@ -256,7 +273,8 @@ export class Game {
     // Water drag: little along the hull, a lot sideways (like a keel).
     let along = b.vx * fx + b.vz * fz;
     let side = b.vx * fz - b.vz * fx;
-    along = clamp(along * Math.exp(-1.2 * dt), -3, st.maxSpeed);
+    if (this.dashTime > 0) along = Math.max(along, st.maxSpeed * DASH_SPEED * (this.dashTime / DASH_TIME) ** 0.5);
+    along = clamp(along * Math.exp(-1.2 * dt), -3, st.maxSpeed * (this.dashTime > 0 ? DASH_SPEED : 1));
     side *= Math.exp(-st.grip * dt);
     b.vx = fx * along + fz * side;
     b.vz = fz * along - fx * side;

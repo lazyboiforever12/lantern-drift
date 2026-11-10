@@ -204,7 +204,7 @@ hudEl.innerHTML = `
   <button class="photo-btn" aria-label="Photo mode" title="Photo mode (C)">\u{1F4F7}</button>
   <span class="oil-label">Oil</span><span class="oil"><i></i></span>
   <span class="buoys"></span>
-  <span class="hint">WASD / arrows steer · Space flare · P pause · M mute</span>
+  <span class="hint">WASD / arrows steer · Space flare · Shift dash · C photo · P pause</span>
   <span class="fps hidden"></span>
   <div class="msg"></div>
   <div class="flash"></div>`;
@@ -269,9 +269,9 @@ const SCREENS = {
     Keep your lantern burning, light every buoy, and wake the lighthouse.</p>
     <ul class="how">
       <li class="keys-only"><b>WASD / arrow keys</b> steer the boat</li>
-      <li class="keys-only"><b>Space</b> fires a flare that scatters shadows (costs oil) \u00b7 <b>C</b> photo mode</li>
+      <li class="keys-only"><b>Space</b> fires a flare that scatters shadows · <b>Shift</b> dashes (both cost oil)</li>
       <li class="touch-only"><b>◀ ▶</b> steer, <b>▲</b> rows forward</li>
-      <li class="touch-only"><b>✦</b> fires a flare that scatters shadows (costs oil)</li>
+      <li class="touch-only"><b>✦</b> fires a flare that scatters shadows · <b>»</b> dashes (both cost oil)</li>
       <li>Collect <b>oil cans</b>; your light shrinks as oil runs low</li>
       <li>Lit <b>buoys</b> are safe zones that shadows won't enter</li>
     </ul>
@@ -742,6 +742,7 @@ function onPress(code, e) {
       break;
     case 'playing':
       if (code === 'KeyC') { enterPhoto(); break; }
+      if (code === 'ShiftLeft' || code === 'ShiftRight') { game.dash(); break; }
       if (code === 'Space') game.flare();
       else if (code === 'KeyR') restart();
       else if (code === 'KeyP' || code === 'Escape') {
@@ -786,7 +787,8 @@ function readGamepad() {
     sound.unlock();
     onPress(state === 'playing' || state === 'paused' ? 'KeyP' : 'Enter');
   }
-  if (padPressed('b', btn(1)) && state !== 'playing') onPress('Escape');
+  if (padPressed('b', btn(1))) { if (state === 'playing') game.dash(); else onPress('Escape'); }
+  if (padPressed('rb', btn(5)) && state === 'playing') game.dash();
   if (state === 'settings') {
     if (padPressed('up', btn(12) || y < -0.5)) onPress('ArrowUp');
     if (padPressed('down', btn(13) || y > 0.5)) onPress('ArrowDown');
@@ -805,7 +807,7 @@ touchEl.id = 'touch';
 touchEl.className = 'hidden';
 touchEl.innerHTML = `
   <div class="pad left"><button data-k="left" aria-label="Turn left">&#9664;</button><button data-k="right" aria-label="Turn right">&#9654;</button></div>
-  <div class="pad right"><button data-k="flare" aria-label="Flare">&#10022;</button><button data-k="forward" aria-label="Row forward">&#9650;</button></div>`;
+  <div class="pad right"><button data-k="dash" aria-label="Dash">&raquo;</button><button data-k="flare" aria-label="Flare">&#10022;</button><button data-k="forward" aria-label="Row forward">&#9650;</button></div>`;
 document.body.appendChild(touchEl);
 for (const b of touchEl.querySelectorAll('button')) {
   const k = b.dataset.k;
@@ -815,7 +817,9 @@ for (const b of touchEl.querySelectorAll('button')) {
     b.setPointerCapture(e.pointerId);
     sound.unlock();
     b.classList.add('down');
-    if (k === 'flare') { if (state === 'playing') game.flare(); } else touch.add(k);
+    if (k === 'flare') { if (state === 'playing') game.flare(); }
+    else if (k === 'dash') { if (state === 'playing') game.dash(); }
+    else touch.add(k);
   });
   b.addEventListener('pointerup', release);
   b.addEventListener('pointercancel', release);

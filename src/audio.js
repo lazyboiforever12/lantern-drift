@@ -238,6 +238,10 @@ export class Sound {
       case 'win':
         [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.7, { type: 'triangle', vol: 0.2, delay: i * 0.15 }));
         break;
+      case 'dash':
+        this.noise(0.35, { vol: 0.25, freq: 1200, type: 'bandpass' });
+        this.tone(220, 0.3, { type: 'triangle', vol: 0.08, slideTo: 440 });
+        break;
       case 'whirl':
         this.noise(0.8, { vol: 0.3, freq: 400, type: 'lowpass' });
         this.tone(260, 0.7, { type: 'sine', vol: 0.12, slideTo: 80 });

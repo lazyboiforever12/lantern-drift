@@ -106,3 +106,4 @@ Caption: 473 characters.
 - Share results (S) from the Daily Voyage and Endless; a photo button for touch screens.
 - Night sky pass (`src/sky.js`): inverse view-projection rays, stars, moon and halo, fbm clouds, mirrored into the
   water reflection. 31 tests.
+- Dash: Shift (B / RB / touch button) gives a short burst past top speed for 4 oil, 2.2 s cooldown. 32 tests.

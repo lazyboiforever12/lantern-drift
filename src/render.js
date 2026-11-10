@@ -209,6 +209,13 @@ export class Renderer {
         this.shake(calm ? 0.1 : 0.45);
         break;
       }
+      case 'dash': {
+        // Spray from the stern.
+        const fx = Math.sin(b.angle), fz = Math.cos(b.angle);
+        P.burst(b.x - fx * 1.1, 0.3, b.z - fz * 1.1, { count: 30, speed: 4, up: 3, life: 0.6, size: 0.08, color: [0.7, 0.85, 0.95] });
+        this.shake(0.12);
+        break;
+      }
       case 'whirl':
         P.burst(ev.x, 0.4, ev.z, { count: 36, speed: 6, up: 4, life: 0.9, color: [0.7, 0.85, 0.95] });
         if (ev.boat) this.shake(0.4);

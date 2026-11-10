@@ -402,3 +402,23 @@ test('a matrix times its inverse is the identity (the sky relies on it)', () => 
   const p = mul(m, invert(m));
   for (let i = 0; i < 16; i++) assert.ok(Math.abs(p[i] - (i % 5 === 0 ? 1 : 0)) < 1e-4);
 });
+
+// ---------- Dash ----------
+test('dash: a burst past top speed for a little oil, then a cooldown', () => {
+  const g = new Game(pool(), 0);
+  g.boat.angle = Math.PI / 2; // face +x, along the open row
+  const fwd = { ...IDLE, forward: true };
+  run(g, 2, fwd);
+  const before = g.oil;
+  const cruise = Math.hypot(g.boat.vx, g.boat.vz);
+  g.dash();
+  assert.ok(before - g.oil >= 4 - 1e-9);
+  g.update(DT, fwd);
+  assert.ok(Math.hypot(g.boat.vx, g.boat.vz) > cruise * 1.4, 'faster than cruising');
+  const oil = g.oil;
+  g.dash(); // still cooling down: nothing happens
+  assert.equal(g.events.filter((e) => e.type === 'dash').length, 1);
+  assert.ok(Math.abs(g.oil - oil) < 1e-9);
+  run(g, 1, fwd);
+  assert.ok(Math.hypot(g.boat.vx, g.boat.vz) <= g.stats.maxSpeed + 0.01, 'back to normal top speed');
+});

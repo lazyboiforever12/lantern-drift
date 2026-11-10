@@ -6,6 +6,7 @@ import { createEditor } from './editor.js';
 import { createShop } from './shop.js';
 import { BOATS, boatById, boatStats, boatPaint, defaultBoatyard } from './boats.js';
 import { Sound } from './audio.js';
+import { generateVoyage, dailyVoyage, todayKey } from './voyages.js';
 
 const canvas = document.getElementById('game');
 const hudEl = document.getElementById('hud');
@@ -21,7 +22,9 @@ try {
 
 const sound = new Sound();
 const keys = new Set();
-let state = 'title'; // title | playing | paused | levelClear | gameOver | won | settings | editor | customClear
+let state = 'title'; // title | playing | paused | levelClear | gameOver | won | settings | editor | customClear | shop
+                     // | voyageClear | voyageOver | dailyClear
+let voyage = null;   // set while on a generated voyage: { kind: 'endless' | 'daily', depth, seed }
 let customDef = null; // set while playing a level from the editor
 let levelIndex = 0;
 let game = null; // created once the saved boat is loaded (below)
@@ -66,7 +69,10 @@ let fireworkTimer = 0;
 
 // ---------- Settings (saved separately from progress) ----------
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
-const settings = { bloom: true, reflections: true, shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false };
+const settings = {
+  bloom: true, reflections: true, rtShadows: true, fog: true, resolution: 'auto', fpsCap: 'vsync',
+  shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false,
+};
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* defaults */ }
 function applySettings() {
   renderer.settings.bloom = settings.bloom;
@@ -74,12 +80,29 @@ function applySettings() {
   renderer.settings.rain = settings.rain;
   renderer.settings.reflections = settings.reflections;
   renderer.settings.flashes = settings.flashes;
+  renderer.settings.rtShadows = settings.rtShadows;
+  renderer.settings.fog = settings.fog;
+  renderer.settings.resolution = settings.resolution;
   if (!settings.autoQuality) renderer.autoLevel = 0;
   sound.setVolume('sound', settings.sound / 10);
   sound.setVolume('music', settings.music / 10);
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* not saved */ }
+  if (loopReady) startFreeLoop(); // a new frame-rate limit may need the free-running loop
 }
+let loopReady = false; // set once the main loop below exists
+// Frame-rate caps. Browsers show at most one frame per screen refresh, so caps above the screen's
+// rate (and "uncapped") run the game loop faster than the screen: smoother input, same picture rate.
+const FPS_CAPS = ['vsync', 30, 60, 120, 144, 240, 'uncapped'];
+const RESOLUTIONS = ['auto', 'native', 1080, 1440, 2160];
+const choiceName = {
+  vsync: 'Match screen', uncapped: 'Uncapped', auto: 'Auto', native: 'Native',
+  1080: '1080p', 1440: '1440p', 2160: '4K (2160p)', 30: '30', 60: '60', 120: '120', 144: '144', 240: '240',
+};
 const SETTING_ROWS = [
+  { key: 'resolution', label: 'Resolution', type: 'choice', options: RESOLUTIONS },
+  { key: 'fpsCap', label: 'Frame rate limit', type: 'choice', options: FPS_CAPS },
+  { key: 'rtShadows', label: 'Ray-traced shadows', type: 'bool' },
+  { key: 'fog', label: 'Volumetric light (mist)', type: 'bool' },
   { key: 'bloom', label: 'Glow and colour effects', type: 'bool' },
   { key: 'reflections', label: 'Water reflections', type: 'bool' },
   { key: 'shake', label: 'Screen shake', type: 'bool' },
@@ -97,6 +120,10 @@ function changeSetting(row, dir) {
   renderer.autoLevel = 0; // the player chose: start auto quality over from full
   if (row.type === 'bool') settings[row.key] = !settings[row.key];
   else if (row.type === 'level') settings[row.key] = Math.max(0, Math.min(10, settings[row.key] + dir));
+  else if (row.type === 'choice') {
+    const i = Math.max(0, row.options.indexOf(settings[row.key]));
+    settings[row.key] = row.options[(i + dir + row.options.length) % row.options.length];
+  }
   applySettings();
   sound.play('oil');
   showScreen('settings');
@@ -115,7 +142,7 @@ function tip(id, text, condition) {
   say(text, 4.5);
 }
 function checkTips() {
-  if (levelIndex !== 0 || customDef || messageTimer > 1) return;
+  if (levelIndex !== 0 || customDef || voyage || messageTimer > 1) return;
   const b = game.boat;
   const speed = Math.hypot(b.vx, b.vz);
   const nearest = Math.min(99, ...game.creatures.map((c) => Math.hypot(c.x - b.x, c.z - b.z)));
@@ -164,7 +191,9 @@ let fpsFrames = 0, fpsTime = 0;
 
 function updateHud(dt) {
   hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || state === 'shop' || (state === 'settings' && settingsFrom === 'title'));
-  hud.level.textContent = customDef ? game.def.name : `Level ${levelIndex + 1}: ${game.def.name}`;
+  hud.level.textContent = voyage
+    ? (voyage.kind === 'daily' ? game.def.name : `Voyage ${voyage.depth + 1}: ${game.def.name}`)
+    : customDef ? game.def.name : `Level ${levelIndex + 1}: ${game.def.name}`;
   hud.timer.textContent = formatTime(game.time);
   // Wind arrow on storm levels: points where the wind blows (screen up = -z), sized by strength.
   hud.wind.classList.toggle('hidden', !game.storm);
@@ -216,6 +245,8 @@ const SCREENS = {
     </ul>
     <p class="go">Press Enter or tap to start</p>
     ${levelList()}
+    <p class="modes"><span data-action="daily"><b>D</b> Daily Voyage${dailyLine()}</span>
+      <span data-action="endless"><b>N</b> Endless${save.endlessBest ? ` \u00b7 best: voyage ${save.endlessBest}` : ''}</span></p>
     <p class="embers-line" data-action="shop">\u2726 ${yard.embers.toLocaleString()} Embers \u00b7 <b>${boatById(yard.equipped).name}</b> \u00b7 <u>B Boatyard</u></p>
     <p class="small"><span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
   levelClear: () => `
@@ -253,6 +284,27 @@ const SCREENS = {
       <p>Thanks for playing</p>
     </div></div>
     <p class="go">Press Enter to return to the title</p>`,
+  voyageClear: () => `
+    <h1>Voyage ${voyage.depth + 1} cleared</h1>
+    <p class="sub">${game.def.name} \u00b7 time ${formatTime(lastClear.time)} \u00b7 oil left ${Math.round(game.oil)}</p>
+    ${emberLine()}
+    <p class="sub">The next harbour is further out, and the shadows are hungrier.</p>
+    <p class="go">Press Enter to sail on</p>
+    <p class="small">Esc ends the run</p>`,
+  voyageOver: () => `
+    <h1>The voyage ends</h1>
+    <p class="sub">Your lantern went out on voyage ${voyage.depth + 1}. You cleared <b>${voyage.depth}</b>.</p>
+    <p class="sub">${lastClear.newBest ? '<b class="best">New best run!</b>' : `Best run: ${save.endlessBest || 0} voyage${save.endlessBest === 1 ? '' : 's'}`}</p>
+    ${emberLine()}
+    <p class="go">Press Enter for a new run</p>
+    <p class="small">Esc back to the title</p>`,
+  dailyClear: () => `
+    <h1>Daily Voyage complete</h1>
+    <p class="sub">${game.def.name} \u00b7 ${formatTime(lastClear.time)} ${lastClear.best ? '\u00b7 <b class="best">Your best today!</b>' : `\u00b7 best ${formatTime(save.daily[voyage.date])}`}</p>
+    <p class="sub">Streak: <b>${save.dailyStreak} day${save.dailyStreak === 1 ? '' : 's'}</b> \u2014 a new voyage appears at midnight</p>
+    ${emberLine()}
+    <p class="go">Press Enter to sail it again</p>
+    <p class="small">Esc back to the title</p>`,
   paused: () => `
     <h1>Paused</h1>
     <p class="go">Press P or tap to carry on</p>
@@ -264,8 +316,10 @@ const SCREENS = {
       let value = '';
       if (row.type === 'bool') value = settings[row.key] ? 'On' : 'Off';
       if (row.type === 'level') value = `${'\u25ae'.repeat(settings[row.key])}${'\u25af'.repeat(10 - settings[row.key])}`;
+      if (row.type === 'choice') value = `\u2039 ${choiceName[settings[row.key]] || settings[row.key]} \u203a`;
       return `<li class="${i === settingsRow ? 'sel' : ''}" data-row="${i}"><span>${row.label}</span><b>${value}</b></li>`;
     }).join('')}</ul>
+    <p class="small">${settingsNote()}</p>
     <p class="small">\u2191 \u2193 choose \u00b7 \u2190 \u2192 or Enter change \u00b7 Esc back</p>`,
 };
 
@@ -290,13 +344,79 @@ function showScreen(name) {
   screenEl.classList.remove('hidden');
 }
 
-// Retry whatever is being played: a built-in level or one from the editor.
+function dailyLine() {
+  const best = save.daily && save.daily[todayKey()];
+  const streak = save.dailyStreak && save.dailyLast && daysBetween(save.dailyLast, todayKey()) <= 1 ? save.dailyStreak : 0;
+  return `${best !== undefined ? ` \u00b7 today ${formatTime(best)}` : ' \u00b7 new today'}${streak ? ` \u00b7 \u{1F525} ${streak}` : ''}`;
+}
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+
+// Generated voyages. Endless: each clear builds a harder one, until your lantern goes out.
+function startVoyage(kind) {
+  customDef = null;
+  run.valid = false;
+  if (kind === 'daily') {
+    const def = dailyVoyage();
+    voyage = { kind, depth: 0, seed: def.seed, date: def.daily };
+    playVoyage(def);
+  } else {
+    voyage = { kind, depth: 0, seed: (Math.random() * 2 ** 31) >>> 0 };
+    playVoyage(generateVoyage(voyage.seed, 0));
+  }
+}
+function playVoyage(def) {
+  editor.close();
+  game = newGame(def, 0);
+  state = 'playing';
+  showScreen(null);
+  say(def.tip || `Light all ${game.buoys.length} buoys, then sail to the lighthouse`, def.tip ? 4 : 3);
+}
+function nextVoyage() {
+  voyage.depth++;
+  playVoyage(generateVoyage((voyage.seed + voyage.depth * 104729) >>> 0, voyage.depth));
+}
+// Called when a generated voyage ends. Sets lastClear and returns the screen to show.
+function finishVoyage(won) {
+  if (voyage.kind === 'endless') {
+    if (!won) {
+      const newBest = voyage.depth > (save.endlessBest || 0);
+      if (newBest) save.endlessBest = voyage.depth;
+      lastClear = { time: game.time, newBest, embers: earn(4 * game.buoysLit + 10 * voyage.depth) };
+      return 'voyageOver';
+    }
+    lastClear = { time: game.time, embers: earn(20 + 6 * voyage.depth + Math.round(game.oilPct / 5)) };
+    return 'voyageClear';
+  }
+  if (!won) {
+    lastClear = { time: game.time, embers: 0 };
+    return 'gameOver';
+  }
+  // Daily: best time for today, a streak for clearing on consecutive days, and Embers once a day.
+  save.daily = save.daily || {};
+  const today = voyage.date;
+  const old = save.daily[today];
+  const best = old === undefined || game.time < old;
+  if (best) save.daily[today] = game.time;
+  let embers = 0;
+  if (save.dailyLast !== today) {
+    save.dailyStreak = save.dailyLast && daysBetween(save.dailyLast, today) === 1 ? (save.dailyStreak || 0) + 1 : 1;
+    save.dailyLast = today;
+    embers = 60 + 10 * Math.min(9, save.dailyStreak - 1);
+  }
+  lastClear = { time: game.time, best, embers: embers ? earn(embers) : 0 };
+  writeSave();
+  return 'dailyClear';
+}
+
+// Retry whatever is being played: a built-in level, a generated voyage, or one from the editor.
 function restart() {
-  if (customDef) startCustom(customDef);
+  if (voyage) playVoyage(game.def);
+  else if (customDef) startCustom(customDef);
   else startLevel(levelIndex);
 }
 
 function startCustom(def) {
+  voyage = null;
   customDef = def;
   run.valid = false;
   game = newGame(def, 0);
@@ -308,6 +428,7 @@ function startCustom(def) {
 
 function openEditor(rows) {
   customDef = null;
+  voyage = null;
   state = 'editor';
   showScreen(null);
   editor.open(rows);
@@ -346,6 +467,7 @@ const editor = createEditor({
 
 function startLevel(i) {
   customDef = null;
+  voyage = null;
   if (state === 'title' || state === 'won') run = { valid: i === 0, time: 0 }; // only a run from level 1 counts
   else if (state !== 'levelClear') run.time += game.time;                    // retries and restarts cost time
   levelIndex = i;
@@ -357,6 +479,7 @@ function startLevel(i) {
 
 function toTitle() {
   customDef = null;
+  voyage = null;
   editor.close();
   state = 'title';
   levelIndex = 0;
@@ -410,6 +533,10 @@ function onPress(code) {
     openShop();
     return;
   }
+  if ((code === 'KeyD' || code === 'KeyN') && state === 'title') {
+    startVoyage(code === 'KeyD' ? 'daily' : 'endless');
+    return;
+  }
   if (code === 'KeyE' && state === 'title') {
     openEditor();
     return;
@@ -441,6 +568,18 @@ function onPress(code) {
     }
     case 'levelClear':
       if (go) startLevel(levelIndex + 1);
+      else if (code === 'Escape') toTitle();
+      break;
+    case 'voyageClear':
+      if (go) nextVoyage();
+      else if (code === 'Escape') toTitle();
+      break;
+    case 'voyageOver':
+      if (go) startVoyage('endless');
+      else if (code === 'Escape') toTitle();
+      break;
+    case 'dailyClear':
+      if (go) restart();
       else if (code === 'Escape') toTitle();
       break;
     case 'gameOver':
@@ -551,6 +690,10 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-action="daily"]')) {
+    startVoyage('daily');
+  } else if (e.target.closest('[data-action="endless"]')) {
+    startVoyage('endless');
   } else if (e.target.closest('[data-action="editor"]')) {
     openEditor();
   } else if (e.target.closest('[data-action="settings"]')) {
@@ -596,7 +739,9 @@ let slowTime = 0, avgFrame = 1 / 60;
 function watchFrameRate(raw) {
   if (state !== 'playing' || !settings.autoQuality || raw > 0.25) return; // ignore tab switches
   avgFrame += (raw - avgFrame) * 0.05;
-  slowTime = avgFrame > 1 / 45 ? slowTime + raw : Math.max(0, slowTime - raw);
+  // "Slow" means under 45 fps, or well under a lower frame-rate limit the player picked.
+  const target = typeof settings.fpsCap === 'number' && settings.fpsCap < 45 ? 1 / (settings.fpsCap * 0.85) : 1 / 45;
+  slowTime = avgFrame > target ? slowTime + raw : Math.max(0, slowTime - raw);
   if (slowTime > 3 && renderer.autoLevel < 3) {
     renderer.autoLevel++;
     slowTime = 0;
@@ -606,13 +751,67 @@ function watchFrameRate(raw) {
 }
 
 // ---------- Main loop ----------
-function frame(now) {
+// Normally one frame per screen refresh (requestAnimationFrame). A lower frame-rate limit skips
+// refreshes on a schedule; a limit above the screen's rate, or "uncapped", switches to a free-running
+// loop driven by MessageChannel (it doesn't wait for the screen, so the game updates more often).
+let refreshMs = 1000 / 60;   // measured screen refresh interval
+let lastRaf = 0;
+let nextDue = 0;
+let freeLoop = false;
+const pump = new MessageChannel();
+
+function runFrame(now) {
   const raw = (now - last) / 1000;
   const dt = Math.min(raw, 0.05);
   last = now;
   watchFrameRate(raw);
   tick(dt);
+}
+const capMs = () => (typeof settings.fpsCap === 'number' ? 1000 / settings.fpsCap : 0);
+const wantsFreeLoop = () => settings.fpsCap === 'uncapped' || (capMs() > 0 && capMs() < refreshMs * 0.95);
+
+function frame(now) {
+  // Keep measuring the screen's refresh rate (a smoothed average of the gaps between refreshes).
+  if (lastRaf && now - lastRaf < 100) refreshMs += (now - lastRaf - refreshMs) * 0.05;
+  lastRaf = now;
   requestAnimationFrame(frame);
+  if (wantsFreeLoop()) {
+    startFreeLoop();
+    return;
+  }
+  const cap = capMs();
+  if (cap) {
+    // Draw on the refresh nearest each due time, so a 60 cap on a 144 Hz screen averages 60.
+    if (now < nextDue - refreshMs / 2) return;
+    nextDue = Math.max(nextDue + cap, now - cap);
+  }
+  runFrame(now);
+}
+
+function startFreeLoop() {
+  if (freeLoop || !wantsFreeLoop()) return;
+  freeLoop = true;
+  pump.port2.postMessage(0);
+}
+
+pump.port1.onmessage = () => {
+  if (!wantsFreeLoop()) { freeLoop = false; return; } // back to the normal loop
+  const now = performance.now();
+  const wait = capMs() - (now - last);
+  if (wait <= 0.2 && renderer.gpuReady()) {
+    runFrame(now);
+    renderer.markFrame();
+  }
+  // Hidden tab: slow right down. Long waits use a timer so the CPU can rest.
+  if (document.hidden) setTimeout(() => pump.port2.postMessage(0), 250);
+  else if (wait > 4) setTimeout(() => pump.port2.postMessage(0), wait - 2);
+  else pump.port2.postMessage(0);
+};
+
+function settingsNote() {
+  const hz = Math.round(1000 / refreshMs);
+  const [w, h] = renderer.renderSize();
+  return `Rendering at ${w}\u00d7${h} \u00b7 your screen refreshes about ${hz} times a second`;
 }
 
 // One step of the game: input, rules, drawing and HUD.
@@ -644,7 +843,10 @@ function tick(dt) {
     game.update(dt, readInput(pad));
     for (const ev of game.events) handleEvent(ev);
     game.events.length = 0;
-    if (game.result === 'lost') {
+    if (game.result && voyage) {
+      state = finishVoyage(game.result === 'won');
+      showScreen(state);
+    } else if (game.result === 'lost') {
       // Even a lost run pays a little for how far you got.
       lastClear = { time: game.time, best: false, embers: earn(4 * game.buoysLit) };
       state = 'gameOver';
@@ -722,6 +924,7 @@ window.lanternDrift = {
   },
 };
 
+loopReady = true;
 applySettings();
 showBoat(yard.equipped);
 showScreen('title');

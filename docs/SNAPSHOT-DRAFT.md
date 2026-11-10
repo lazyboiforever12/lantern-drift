@@ -15,7 +15,13 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 
 > Huge Lantern Drift update: a Boatyard! Earn Embers by clearing levels and spend them on 22 boats, from a bed mattress and a comfy couch up to the Titanic, an aircraft carrier and an old battleship. Each has its own stats and a special trait (the sub hides from shadows, the carrier's plane lights buoys from further away, the battleship's armour halves stolen oil), upgrades, 17 paints, and animated parts: radars, propellers, turrets, paddle wheels and funnel smoke. Also new: a storm level, a level editor with share links, an ending with fireworks, and shadows that can't pass through walls any more (they path around buildings with a flow field). Raw WebGL2, no engine. (Built with Claude Code, directed by me.)
 
-## Snapshot 3 (spare)
+## Snapshot 3 (can be sent from 7:58 AM on 11 Nov)
+**Image:** `docs/snapshot-raytraced.png` (a flare over Lantern Row: every building throws a ray-traced shadow)
+Mipmap captions are limited to 500 characters; this one is 446.
+
+> Ray tracing in raw WebGL2! Every light now casts real shadows: the shader walks each light ray through the town's building grid cell by cell (a 2D DDA), so flares throw long shadows down every street, and shadow creatures cast soft ones. Plus volumetric mist, 1080p/1440p/4K and 30-240/uncapped frame rates, a Daily Voyage (a new generated town every day, with streaks) and Endless mode. Still no engine. (Built with Claude Code, directed by me.)
+
+## Snapshot 4 (spare, needs shortening to 500 characters before posting)
 **Image:** `docs/snapshot-effects.png`
 
 > Graphics upgrade for Lantern Drift: procedural brick, roof and wood textures (a WebGL2 texture array with mipmaps and anisotropic filtering, triplanar-mapped so no UVs needed) and planar water reflections, so lit windows shimmer in the flood. The scene renders offscreen with 4x MSAA, then a bloom pass (bright-pass + separable Gaussian blur at quarter resolution), vignette, film grain, a colour split when you're hit, and a cold desaturated look when your oil runs low. Added instanced particles too (rain, flare sparks, lantern embers, shadow wisps) and a sweeping lighthouse beam. Plus generative music that gets tenser when shadows are near, and a settings menu. Still raw WebGL2, all shaders by hand. (Built with help from Claude Code.)
@@ -62,3 +68,16 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 - Shadows no longer pass through buildings: they collide like the boat and find their way with a flow field (a BFS distance map to the boat, refreshed 4× a second). They only lunge with a clear line of sight. Tested: no shadow ever ends up inside a wall.
 - Boatyard (idea from lazyboiforever12): Embers currency from clears (first clears, oil left, best times, full runs), 11 boat designs with real stat differences, 4 upgrades × 3 levels per boat, 17 hull/trim paints including glow paints, and a live 3D preview using the game's renderer.
 - 18 tests.
+
+## 10 Nov 2026 (evening)
+- Snapshot 2 posted (the Boatyard). Mipmap captions are capped at 500 characters, so it was shortened.
+- Ray-traced shadows: building heights go into an R32F texture; the fragment shader traces a shadow ray per light
+  through the grid with a 2D DDA and soft penumbrae; shadow creatures are traced as soft spheres.
+  Early-outs (skip faint lights, stop above the tallest roof) brought the cost down to about 1 ms a frame here.
+- Volumetric light: closed-form in-scattering for the three brightest lights (lantern, flare, lighthouse).
+- Resolution presets (Auto, Native, 1080p, 1440p, 4K) and frame-rate limits (match screen, 30, 60, 120, 144, 240,
+  uncapped). The uncapped loop first ran at 576 "fps" by queueing frames the GPU hadn't drawn; a GPU fence fixed it
+  (103 real fps here with everything on).
+- Procedural voyages (`src/voyages.js`): seeded maps checked by `checkLevel`, a Daily Voyage with streaks, and an
+  Endless mode. Bot-tested across depths 0 to 11.
+- 23 tests.

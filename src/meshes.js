@@ -157,6 +157,11 @@ function hash(x, y) {
   return s - Math.floor(s);
 }
 
+// Roof height of the building in a grid cell. The renderer's ray-traced shadows use the same numbers.
+export function buildingHeight(col, row) {
+  return 1.0 + hash(col, row) * 1.5; // kept low so buildings never hide the boat
+}
+
 export function buildingsMesh(gl, level) {
   const b = new MeshBuilder();
   const { grid, cell } = level;
@@ -165,7 +170,7 @@ export function buildingsMesh(gl, level) {
       if (grid[row][col] !== '#') continue;
       const x = col * cell + cell / 2;
       const z = row * cell + cell / 2;
-      const h = 1.0 + hash(col, row) * 1.5; // kept low so buildings never hide the boat
+      const h = buildingHeight(col, row);
       const shade = 0.28 + hash(row, col) * 0.18;
       const color = [shade, shade * 0.95, shade * 0.9];
       b.box(x, h / 2 - 1, z, cell, h + 2, cell, color);

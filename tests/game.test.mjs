@@ -239,3 +239,49 @@ test('special ship traits work', async () => {
   ws.flare();
   assert.ok(Math.abs(ws.tank - ws.oil - 12 * 0.6) < 0.01);
 });
+
+// ---------- Generated voyages ----------
+import { generateVoyage, dailyVoyage, voyageDifficulty, hashString } from '../src/voyages.js';
+import { checkLevel } from '../src/levels.js';
+
+test('generated voyages are fair at every depth, and the same seed builds the same map', () => {
+  for (let depth = 0; depth < 16; depth++) {
+    for (let s = 0; s < 15; s++) {
+      const seed = 100 + s * 977 + depth;
+      const def = generateVoyage(seed, depth);
+      assert.deepEqual(checkLevel(def), [], `${def.name} (seed ${seed}, depth ${depth})`);
+      assert.deepEqual(generateVoyage(seed, depth).map, def.map);
+      const L = parseLevel(def);
+      assert.ok(L.oils.length >= 3 && L.buoys.length >= 3, def.name);
+      // Shadows never start right on top of the boat.
+      for (const c of L.creatures) assert.ok(Math.hypot(c.x - L.start.x, c.z - L.start.z) >= 18, def.name);
+    }
+  }
+});
+
+test('voyages get harder with depth', () => {
+  for (let d = 1; d < 30; d++) {
+    const a = voyageDifficulty(d - 1), b = voyageDifficulty(d);
+    assert.ok(b.drain >= a.drain && b.creatureSpeed >= a.creatureSpeed && b.lungeCooldown <= a.lungeCooldown);
+    assert.ok(b.creatures >= a.creatures && b.buoys >= a.buoys);
+  }
+});
+
+test('the Daily Voyage is the same all day and changes the next day', () => {
+  const a = dailyVoyage('2026-11-10');
+  assert.deepEqual(dailyVoyage('2026-11-10').map, a.map);
+  assert.notDeepEqual(dailyVoyage('2026-11-11').map, a.map);
+  assert.equal(a.daily, '2026-11-10');
+  assert.notEqual(hashString('a'), hashString('b'));
+});
+
+// ---------- Ray-traced shadows ----------
+import { readFileSync } from 'node:fs';
+import { buildingHeight } from '../src/meshes.js';
+
+test('no roof is taller than the shadow tracer assumes', () => {
+  // The shader stops a ray once it climbs above ROOF_MAX, so every building must be lower.
+  const src = readFileSync(new URL('../src/shaders.js', import.meta.url), 'utf8');
+  const roofMax = Number(src.match(/#define ROOF_MAX ([\d.]+)/)[1]);
+  for (let c = 0; c < 80; c++) for (let r = 0; r < 60; r++) assert.ok(buildingHeight(c, r) < roofMax);
+});

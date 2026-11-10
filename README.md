@@ -5,7 +5,7 @@ Collect oil, light the buoys, and reach the lighthouse before your lantern goes 
 
 Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL2, no engine).
 
-![The boat riding a current on Lighthouse Point](docs/snapshot-currents.png)
+![A flare over Lantern Row: every building casts a ray-traced shadow, and the stunned shadows cast their own](docs/snapshot-raytraced.png)
 
 ## Controls
 | | Keyboard | Gamepad | Touch |
@@ -20,7 +20,17 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 | Mute | M | | |
 | Frame rate counter | F3 | | |
 
-On the title screen, press a number (or click a level) to replay any level you've unlocked.
+On the title screen, press a number (or click a level) to replay any level you've unlocked,
+**D** for the Daily Voyage or **N** for Endless voyages.
+
+## Daily Voyage and Endless
+- **Daily Voyage:** a new generated town every day, the same for every player (the date is the seed).
+  Beat it for Embers, set your best time for the day, and keep a streak going by clearing it on consecutive days.
+- **Endless:** voyage after voyage, each further out and harder: bigger maps, more and faster shadows,
+  and twists (strong currents, buoys that burn out, storms). It ends when your lantern goes out. Your best run is saved.
+- Voyages are built by `src/voyages.js` from a seeded random number generator, and every map has to pass the same
+  fairness check as the level editor before it's used. The play-test bots won 288 of 288 generated maps without
+  getting stuck, and the sloppy bot's win rate drops from 100% on the first voyage to about 40-50% by voyage 10.
 
 ## Boatyard
 Press **B** on the title screen. Clearing levels earns **Embers** ✦. You get more for later levels, oil left over, first clears, new best times and full runs. Even a lost run pays a little for every buoy you lit.
@@ -65,6 +75,19 @@ node serve.mjs
 Then open http://localhost:5173
 
 ## Graphics techniques (Tier Romeo)
+
+- **Ray-traced shadows:** every light casts real shadows. The level's buildings are uploaded as a small height texture
+  (one texel per grid cell), and for each pixel and each light the fragment shader walks the ray to the light through
+  that grid, cell by cell (a 2D DDA, Amanatides-Woo), checking the ray's height against each roof. Rays that just
+  skim a roof get a soft penumbra. The shadow creatures are traced too, as soft spheres, so the lantern throws their
+  shadows across the water and walls. Cheap early-outs keep it fast: lights that add almost nothing are skipped, and a
+  ray stops once it climbs above the tallest roof (a test checks the meshes and the shader agree on that height).
+- **Volumetric light:** the rain mist glows around the lantern, flares and the lighthouse. Instead of ray-marching fog,
+  the shader uses the closed-form integral of a point light's falloff along the view ray (an arctangent).
+- **Resolution and frame rate:** Settings has Auto, Native, 1080p, 1440p and 4K rendering (the scene renders at that
+  size and is scaled to the window, so 4K on a 1080p screen is supersampling), and frame-rate limits of 30, 60, 120,
+  144, 240 or uncapped. Limits above the screen's refresh rate run a free loop on `MessageChannel`, with a GPU fence
+  (`fenceSync` / `clientWaitSync`) so the CPU never queues frames faster than the GPU finishes them.
 WebGL2 is only used to talk to the GPU. Everything below is written in this repo:
 - **Lighting:** one hand-written GLSL shader with up to 16 point lights (lantern, flares, buoys, lighthouse, beam spot), Blinn-Phong specular, a faint moon, emissive surfaces, and Reinhard tone mapping with gamma.
 - **Water:** a grid mesh displaced in the vertex shader by three sine waves, with the matching analytic normal so lights glint on the waves.
@@ -96,10 +119,11 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 16 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes and the level checker.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 23 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) and the shadow tracer's roof limit.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
   and prints win rates, time and oil left. It was used to tune difficulty so each level is a bit harder than the last.
+  `VOYAGES=1 node tools/autoplay.mjs` does the same for generated voyages at depths 0 to 11, plus a month of Daily Voyages.
 - Press F9 while running `node serve.mjs` to save a screenshot into `screenshots/`.
 - In the browser console, `lanternDrift.step(2)` runs two seconds of game time and `lanternDrift.game` is the current level.
 
@@ -128,5 +152,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Phone layout: wider portrait view, touch hints, HUD that fits
 - [x] Shadows collide with buildings and path around them (flow field)
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
+- [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
+- [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

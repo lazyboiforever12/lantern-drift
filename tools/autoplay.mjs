@@ -140,6 +140,25 @@ function playOnce(def, index, seed, skill) {
 }
 
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+
+// VOYAGES=1: play generated voyages instead, a different map for every run, at each depth.
+if (process.env.VOYAGES) {
+  const { generateVoyage, dailyVoyage } = await import('../src/voyages.js');
+  for (const [skillName, skill] of Object.entries(SKILL)) {
+    console.log(`--- ${skillName} bot, generated voyages ---`);
+    for (let depth = 0; depth < 12; depth++) {
+      const runs = [];
+      for (let s = 0; s < RUNS; s++) runs.push(playOnce(generateVoyage(5000 + s * 31 + depth * 1009, depth), 0, 1000 + s * 77, skill));
+      const wins = runs.filter((r) => r.result === 'won');
+      console.log(`depth ${String(depth).padStart(2)}  win ${String(wins.length).padStart(2)}/${RUNS}  time ${avg(wins.map((r) => r.time)).toFixed(1).padStart(5)}s  timeouts ${runs.filter((r) => r.result === 'timeout').length}`);
+    }
+    const daily = [];
+    for (let d = 1; d <= RUNS; d++) daily.push(playOnce(dailyVoyage(`2026-11-${String(d).padStart(2, '0')}`), 0, 2000 + d, skill));
+    console.log(`daily (Nov 1-${RUNS})  win ${daily.filter((r) => r.result === 'won').length}/${RUNS}`);
+  }
+  process.exit(0);
+}
+
 for (const [skillName, skill] of Object.entries(SKILL)) {
 console.log(`--- ${skillName} bot ---`);
 LEVELS.forEach((def, i) => {

@@ -1,13 +1,13 @@
 // Draws a Game with raw WebGL2.
 import { createContext, createProgram, deleteMesh } from './gl.js';
-import { vertexShader, fragmentShader, MAX_LIGHTS } from './shaders.js';
+import { vertexShader, fragmentShader, MAX_LIGHTS, MAX_OCCLUDERS } from './shaders.js';
 import { CURRENTS } from './levels.js';
 import { PostProcess } from './post.js';
 import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate } from './math.js';
 import {
-  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
+  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, buildingHeight, waterMesh, foamMesh, streakMesh,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -30,6 +30,7 @@ export class Renderer {
       'uViewProj', 'uModel', 'uTime', 'uWater', 'uTint', 'uEmissiveBoost', 'uCamPos',
       'uAmbient', 'uMoonDir', 'uMoonColor', 'uLightCount', 'uLightPos', 'uLightColor', 'uLightRadius',
       'uTextures', 'uTexSide', 'uTexTop', 'uTexScale', 'uReflection', 'uReflect', 'uViewport', 'uClip',
+      'uHeightMap', 'uGridSize', 'uCell', 'uRayShadows', 'uOccluderCount', 'uOccluders', 'uFog',
     ];
     this.u = {};
     for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
@@ -42,6 +43,9 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.u.uTextures, 2);
     gl.uniform1i(this.u.uReflection, 3);
+    gl.uniform1i(this.u.uHeightMap, 4); // the level's building heights, for ray-traced shadows
+    this.heightMap = null;
+    this.occluders = new Float32Array(MAX_OCCLUDERS * 4);
     this.reflection = null; // offscreen target for the mirrored scene, made on first use
 
     this.meshes = {
@@ -62,7 +66,9 @@ export class Renderer {
     this.lastGame = null;
 
     // Optional extras. If post-processing can't start (old GPU or driver), draw straight to the screen.
-    this.settings = { bloom: true, shake: true, rain: true, reflections: true, flashes: true };
+    // resolution: 'auto' (sharp but capped for speed), 'native' (every screen pixel), or a height
+    // such as 1080 / 1440 / 2160: the scene is rendered at that size and scaled to fit the window.
+    this.settings = { bloom: true, shake: true, rain: true, reflections: true, flashes: true, rtShadows: true, fog: true, resolution: 'auto' };
     // 0 = full quality. Raised automatically when frames are slow: 1 no reflections, 2 no bloom, 3 lower resolution.
     this.autoLevel = 0;
     this.showcase = false; // Boatyard preview camera
@@ -85,11 +91,47 @@ export class Renderer {
     gl.clearColor(0.01, 0.012, 0.025, 1);
   }
 
-  resize() {
+  // Size of the drawing buffer in pixels for the chosen resolution.
+  renderSize() {
+    const cw = Math.max(1, this.canvas.clientWidth), ch = Math.max(1, this.canvas.clientHeight);
+    const res = this.settings.resolution;
+    let scale;
+    if (res === 'native') scale = window.devicePixelRatio || 1;
+    else if (typeof res === 'number') scale = res / ch;
+    else scale = Math.min(window.devicePixelRatio || 1, 1.5);
     // autoLevel 3 also lowers the resolution for slow GPUs (see main.js quality scaling).
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * (this.autoLevel >= 3 ? 0.7 : 1);
-    const w = Math.floor(this.canvas.clientWidth * dpr);
-    const h = Math.floor(this.canvas.clientHeight * dpr);
+    if (this.autoLevel >= 3) scale *= 0.7;
+    const max = this.maxSize || (this.maxSize = Math.min(this.gl.getParameter(this.gl.MAX_RENDERBUFFER_SIZE), 8192));
+    scale = Math.min(scale, max / cw, max / ch);
+    return [Math.max(1, Math.round(cw * scale)), Math.max(1, Math.round(ch * scale))];
+  }
+
+  // GPU back-pressure for the free-running frame loop: a fence is dropped into the command stream
+  // after each frame, and the next frame waits until the GPU has passed it. Without this the CPU
+  // could queue frames faster than the GPU draws them, which only adds input lag.
+  gpuReady() {
+    const gl = this.gl;
+    if (!this.fence) return true;
+    const status = gl.clientWaitSync(this.fence, 0, 0);
+    if (status === gl.TIMEOUT_EXPIRED) return false;
+    gl.deleteSync(this.fence);
+    this.fence = null;
+    return true;
+  }
+
+  markFrame() {
+    const gl = this.gl;
+    if (this.fence) gl.deleteSync(this.fence);
+    this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+  }
+
+  get raytracing() {
+    return this.settings.rtShadows && this.autoLevel < 2;
+  }
+
+  resize() {
+    const [w, h] = this.renderSize();
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w;
       this.canvas.height = h;
@@ -265,7 +307,32 @@ export class Renderer {
       const dir = CURRENTS[ch];
       if (dir) this.currentCells.push({ x: c * cell + cell / 2, z: r * cell + cell / 2, dir, angle: Math.atan2(dir.x, dir.z), seed: (c * 7 + r * 13) % 10 / 10 });
     }));
+    this.uploadHeightMap(game.level);
     this.levelKey = game.def;
+  }
+
+  // One float per grid cell: the roof height of a building, or far below the water for open cells.
+  // The shader walks this grid to trace shadow rays (see traceGrid in shaders.js).
+  uploadHeightMap(level) {
+    const gl = this.gl;
+    const { grid, width, height } = level;
+    const data = new Float32Array(width * height);
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) data[r * width + c] = grid[r][c] === '#' ? buildingHeight(c, r) : -100;
+    }
+    if (!this.heightMap) this.heightMap = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.heightMap);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.useProgram(this.program);
+    gl.uniform2i(this.u.uGridSize, width, height);
+    gl.uniform1f(this.u.uCell, level.cell);
   }
 
   draw(game, time, dt, { playing = true } = {}) {
@@ -326,6 +393,15 @@ export class Renderer {
     gl.uniform3fv(u.uLightPos, this.lightPos);
     gl.uniform3fv(u.uLightColor, this.lightColor);
     gl.uniform1fv(u.uLightRadius, this.lightRadius);
+
+    // Ray-traced shadows: buildings from the height grid, shadow creatures as soft spheres.
+    const rt = this.raytracing;
+    gl.uniform1i(u.uRayShadows, rt ? 1 : 0);
+    const occ = rt ? game.creatures.slice(0, MAX_OCCLUDERS) : [];
+    occ.forEach((c, i) => this.occluders.set([c.x, 0.9 + Math.sin(time * 3 + c.seed) * 0.25, c.z, 0.55], i * 4));
+    gl.uniform1i(u.uOccluderCount, occ.length);
+    gl.uniform4fv(u.uOccluders, this.occluders);
+    gl.uniform1f(u.uFog, this.settings.fog && this.autoLevel < 2 ? 0.035 : 0);
 
     const m = this.meshes;
     const lh = game.lighthouse;

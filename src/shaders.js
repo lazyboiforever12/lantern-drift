@@ -2,6 +2,7 @@
 // (the boat's lantern, flares, buoys, the lighthouse) and emissive parts that glow in the dark.
 
 export const MAX_LIGHTS = 16;
+export const MAX_OCCLUDERS = 8;  // shadow creatures, traced as soft spheres
 
 export const vertexShader = /* glsl */ `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -51,6 +52,9 @@ precision highp float;
 precision highp int;
 
 #define MAX_LIGHTS ${MAX_LIGHTS}
+#define MAX_OCCLUDERS ${MAX_OCCLUDERS}
+#define MAX_STEPS 40
+#define ROOF_MAX 2.6   // no roof is taller, so a ray above this can't be blocked
 
 in vec3 vWorld;
 in vec3 vNormal;
@@ -83,6 +87,16 @@ uniform vec3 uLightPos[MAX_LIGHTS];
 uniform vec3 uLightColor[MAX_LIGHTS];
 uniform float uLightRadius[MAX_LIGHTS];
 
+// Ray tracing. The level is a grid of building heights (one texel per cell, water is far below 0).
+// Each light ray walks that grid cell by cell, so buildings cast real shadows from every light.
+uniform highp sampler2D uHeightMap;
+uniform ivec2 uGridSize;
+uniform float uCell;
+uniform int uRayShadows;
+uniform int uOccluderCount;
+uniform vec4 uOccluders[MAX_OCCLUDERS]; // xyz centre, w radius
+uniform float uFog;                      // density of the lit mist; 0 turns it off
+
 out vec4 outColor;
 
 // Triplanar mapping: project the texture along whichever axis the surface faces most,
@@ -97,6 +111,82 @@ vec3 surfaceTexture() {
   else uv = vec2(p.x, -p.y);
   if (layer < 0) return vec3(1.0);
   return texture(uTextures, vec3(uv, float(layer))).rgb * 2.0;
+}
+
+float cellHeight(ivec2 c) {
+  if (c.x < 0 || c.y < 0 || c.x >= uGridSize.x || c.y >= uGridSize.y) return -100.0;
+  return texelFetch(uHeightMap, c, 0).r;
+}
+
+// Visibility (0..1) from p to a light at lp through the building grid: a 2D DDA (Amanatides-Woo)
+// in cell space. In each cell the ray is a straight line in height, so the lowest point is at the
+// cell's entry or exit. Passing just over a roof gives a soft edge instead of a hard cut.
+float traceGrid(vec3 p, vec3 lp) {
+  vec3 d = lp - p;
+  vec2 a = p.xz / uCell;
+  vec2 dir = d.xz / uCell;
+  ivec2 c = ivec2(floor(a));
+  ivec2 stepDir = ivec2(dir.x >= 0.0 ? 1 : -1, dir.y >= 0.0 ? 1 : -1);
+  vec2 inv = 1.0 / max(abs(dir), vec2(1e-5));
+  vec2 frac = a - vec2(c);
+  vec2 tMax = vec2(dir.x >= 0.0 ? 1.0 - frac.x : frac.x, dir.y >= 0.0 ? 1.0 - frac.y : frac.y) * inv;
+  float len = length(d);
+  float vis = 1.0;
+  float t = 0.0;
+  bool startSolid = cellHeight(c) > -50.0;  // a roof: skip its own cell
+  for (int i = 0; i < MAX_STEPS; i++) {
+    float tNext = min(min(tMax.x, tMax.y), 1.0);
+    if (i > 0 || !startSolid) {
+      float h = cellHeight(c);
+      float yMin = p.y + d.y * (d.y < 0.0 ? tNext : t);
+      // Distance above the roof, compared with how far along the ray we are: a light is not a point.
+      vis = min(vis, clamp((yMin - h) * 6.0 / (0.6 + t * len * 0.35), 0.0, 1.0));
+      if (vis <= 0.0) return 0.0;
+    }
+    if (tNext >= 1.0) break;
+    t = tNext;
+    if (d.y > 0.0 && p.y + d.y * t > ROOF_MAX) break;  // climbing above every roof: nothing left to hit
+    if (tMax.x < tMax.y) { c.x += stepDir.x; tMax.x += inv.x; } else { c.y += stepDir.y; tMax.y += inv.y; }
+  }
+  return vis;
+}
+
+// Soft shadow of a sphere along a ray (ro, unit rd) up to distance tMax.
+float sphereShadow(vec3 ro, vec3 rd, vec4 s, float tMax) {
+  vec3 oc = ro - s.xyz;
+  float b = dot(oc, rd);
+  float c = dot(oc, oc) - s.w * s.w;
+  float h = b * b - c;
+  float d = -s.w + sqrt(max(0.0, s.w * s.w - h));
+  float t = -b - sqrt(max(0.0, h));
+  if (t < 0.0 || t > tMax) return 1.0;
+  return smoothstep(0.0, 1.0, 5.0 * d / t);
+}
+
+float lightVisibility(vec3 p, vec3 lp) {
+  // A ray that starts above every roof and goes up can't hit a building.
+  float vis = (p.y > ROOF_MAX && lp.y > p.y) ? 1.0 : traceGrid(p, lp);
+  if (vis <= 0.0) return 0.0;
+  vec3 L = lp - p;
+  float dist = length(L);
+  L /= dist;
+  for (int i = 0; i < MAX_OCCLUDERS; i++) {
+    if (i >= uOccluderCount) break;
+    vis *= sphereShadow(p, L, uOccluders[i], dist);
+  }
+  return vis;
+}
+
+// Light scattered towards the camera by mist along the view ray, from one point light.
+// The integral of 1 / distance^2 along a line has a closed form (an arctangent), so this
+// costs a few instructions instead of marching through the fog.
+float inScatter(vec3 ro, vec3 rd, float tEnd, vec3 lp, float radius) {
+  vec3 oc = lp - ro;
+  float tca = dot(oc, rd);
+  float h = sqrt(max(dot(oc, oc) - tca * tca, 0.09));
+  float t0 = max(0.0, tca - radius), t1 = min(tEnd, tca + radius);
+  if (t1 <= t0) return 0.0;
+  return (atan((t1 - tca) / h) - atan((t0 - tca) / h)) / h;
 }
 
 void main() {
@@ -124,6 +214,14 @@ void main() {
     L /= max(d, 0.0001);
     float att = clamp(1.0 - d / uLightRadius[i], 0.0, 1.0);
     att *= att;
+    if (att <= 0.0) continue;
+    float facing = dot(n, L);
+    if (facing <= 0.0 && !water) continue;  // faces away: no light to shadow
+    if (uRayShadows == 1 && att * max(facing, 0.2) * max(uLightColor[i].r, uLightColor[i].g) > 0.004) {
+      // Start just off the surface so a wall doesn't shadow itself.
+      att *= lightVisibility(vWorld + n * 0.04, uLightPos[i]);
+      if (att <= 0.0) continue;
+    }
     float diff = max(dot(n, L), 0.0);
     vec3 H = normalize(L + V);
     float spec = pow(max(dot(n, H), 0.0), shininess) * specAmount;
@@ -142,6 +240,19 @@ void main() {
     // Fresnel: water reflects more at grazing angles.
     float fres = 0.35 + 0.65 * pow(1.0 - max(dot(n, V), 0.0), 3.0);
     lit += refl * fres * 1.5;
+  }
+
+  if (uFog > 0.0 && uClip == 0) {
+    vec3 rd = vWorld - uCamPos;
+    float tEnd = length(rd);
+    rd /= tEnd;
+    vec3 mist = vec3(0.0);
+    // Only the first few lights (lantern, flare, lighthouse) are bright enough to light the mist.
+    for (int i = 0; i < 3; i++) {
+      if (i >= uLightCount) break;
+      mist += uLightColor[i] * inScatter(uCamPos, rd, tEnd, uLightPos[i], uLightRadius[i]);
+    }
+    lit += mist * uFog;
   }
 
   // Simple tone map and gamma, so bright lights roll off softly.

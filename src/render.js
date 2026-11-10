@@ -7,7 +7,7 @@ import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate } from './math.js';
 import {
-  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, buildingHeight, waterMesh, foamMesh, streakMesh,
+  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -295,10 +295,12 @@ export class Renderer {
     if (this.levelMeshes) {
       deleteMesh(gl, this.levelMeshes.water);
       deleteMesh(gl, this.levelMeshes.buildings);
+      deleteMesh(gl, this.levelMeshes.props);
     }
     this.levelMeshes = {
       water: waterMesh(gl, game.level),
       buildings: buildingsMesh(gl, game.level),
+      props: propsMesh(gl, game.level),
     };
     // Cells with flowing water, for drawing drifting streaks.
     this.currentCells = [];
@@ -502,6 +504,7 @@ export class Renderer {
     const m = this.meshes;
     const lh = game.lighthouse;
     this.drawMesh(this.levelMeshes.buildings, IDENTITY, { tex: [TEX.brick, TEX.roof, 0.5] });
+    this.drawMesh(this.levelMeshes.props, IDENTITY, { tex: [TEX.wood, TEX.wood, 2.0] });
     this.drawMesh(m.lighthouse, model(lh.x, 0, lh.z), {
       glow: game.lighthouseActive ? 2.5 : 0.25, tex: [TEX.stone, TEX.stone, 1.5],
     });

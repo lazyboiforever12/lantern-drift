@@ -162,9 +162,19 @@ export function buildingHeight(col, row) {
   return 1.0 + hash(col, row) * 1.5; // kept low so buildings never hide the boat
 }
 
+// The four sides of a cell: grid step, and which way the face points.
+const SIDES = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+const ROOF_TILES = [[0.36, 0.16, 0.13], [0.22, 0.24, 0.28], [0.3, 0.2, 0.15], [0.42, 0.3, 0.2]];
+const WINDOW_LIT = [1.0, 0.75, 0.4];
+const WINDOW_DARK = [0.07, 0.09, 0.13];
+const FRAME = [0.16, 0.13, 0.11];
+
+// Every building cell is a small house: walls, a pitched or flat roof, maybe a chimney, and
+// windows (some lit, some dark, with frames) on each side that faces water. All one static mesh.
 export function buildingsMesh(gl, level) {
   const b = new MeshBuilder();
   const { grid, cell } = level;
+  const solid = (c, r) => !grid[r] || grid[r][c] === undefined || grid[r][c] === '#';
   for (let row = 0; row < grid.length; row++) {
     for (let col = 0; col < grid[row].length; col++) {
       if (grid[row][col] !== '#') continue;
@@ -174,15 +184,98 @@ export function buildingsMesh(gl, level) {
       const shade = 0.28 + hash(row, col) * 0.18;
       const color = [shade, shade * 0.95, shade * 0.9];
       b.box(x, h / 2 - 1, z, cell, h + 2, cell, color);
-      b.box(x, h - 1 + 0.15, z, cell * 0.8, 0.3, cell * 0.8, [shade * 0.6, shade * 0.5, shade * 0.45]);
-      // A lit window on the side facing the camera, if that side faces water.
-      const below = grid[row + 1] && grid[row + 1][col];
-      if (below && below !== '#' && hash(col + 7, row + 3) > 0.55) {
-        const wy = 0.6 + hash(col, row + 9) * Math.max(0.1, h - 1.4);
-        b.box(x + (hash(col, row + 5) - 0.5) * 0.8, wy, z + cell / 2 + 0.02, 0.45, 0.55, 0.05, [1.0, 0.75, 0.4], 0.55);
+      const roof = ROOF_TILES[Math.floor(hash(col + 3, row + 11) * ROOF_TILES.length)];
+      if (hash(col + 1, row + 2) > 0.4) {
+        // Pitched roof: three steps narrowing to a ridge, running along x or z.
+        const alongX = hash(col + 9, row) > 0.5;
+        for (let i = 0; i < 3; i++) {
+          const w = cell * (0.98 - i * 0.32);
+          b.box(x, h + 0.09 + i * 0.17, z, alongX ? cell * 0.98 : w, 0.18, alongX ? w : cell * 0.98, roof);
+        }
+      } else {
+        // Flat roof with a low parapet around the edge.
+        const p = 0.12, e = cell / 2 - p / 2;
+        const cap = [shade * 0.6, shade * 0.55, shade * 0.5];
+        b.box(x, h + 0.08, z - e, cell, 0.16, p, cap).box(x, h + 0.08, z + e, cell, 0.16, p, cap);
+        b.box(x - e, h + 0.08, z, p, 0.16, cell, cap).box(x + e, h + 0.08, z, p, 0.16, cell, cap);
+      }
+      if (hash(col + 5, row + 7) > 0.68) {
+        const cx = x + (hash(col, row + 13) - 0.5) * 1.0, cz = z + (hash(col + 13, row) - 0.5) * 1.0;
+        b.box(cx, h + 0.4, cz, 0.28, 0.75, 0.28, [0.3, 0.17, 0.13]);
+        b.box(cx, h + 0.8, cz, 0.36, 0.08, 0.36, [0.18, 0.14, 0.12]);
+      }
+      // Windows on every side that faces open water.
+      SIDES.forEach(([dc, dr], s) => {
+        if (solid(col + dc, row + dr)) return;
+        const count = h > 1.9 ? 2 : 1;
+        for (let k = 0; k < count; k++) {
+          if (hash(col * 3 + s, row * 5 + k) < 0.3) continue;
+          const lit = hash(col + s * 17, row + k * 29) > 0.5;
+          const along = (k - (count - 1) / 2) * 0.85 + (hash(col + k, row + s) - 0.5) * 0.3;
+          const wy = 0.55 + (h - 0.9) * hash(col + s, row + k + 9) * 0.8;
+          const fx = x + dc * (cell / 2 + 0.02) + (dr !== 0 ? along : 0);
+          const fz = z + dr * (cell / 2 + 0.02) + (dc !== 0 ? along : 0);
+          const across = dc !== 0; // the face points along x, so the window is thin in x
+          b.box(fx, wy, fz, across ? 0.05 : 0.56, 0.62, across ? 0.56 : 0.05, FRAME, 0.02);
+          b.box(fx + dc * 0.02, wy, fz + dr * 0.02, across ? 0.05 : 0.42, 0.48, across ? 0.42 : 0.05,
+            lit ? WINDOW_LIT : WINDOW_DARK, lit ? 0.55 : 0.03);
+          b.box(fx + dc * 0.05, wy - 0.3, fz + dr * 0.05, across ? 0.12 : 0.6, 0.05, across ? 0.6 : 0.12, FRAME, 0.02);
+        }
+      });
+    }
+  }
+  return b.build(gl);
+}
+
+// Waterside clutter: wooden piers along some walls, moored rowboats, mooring posts, lamp posts
+// with glowing heads, and floating crates. It keeps to the edge of each water cell, where the
+// boat's own size already keeps it from going, so nothing here gets in the way.
+export function propsMesh(gl, level) {
+  const b = new MeshBuilder();
+  const { grid, cell } = level;
+  const WOOD_COL = [0.4, 0.27, 0.16];
+  const DARK = [0.2, 0.14, 0.09];
+  for (let row = 1; row < grid.length - 1; row++) {
+    for (let col = 1; col < grid[row].length - 1; col++) {
+      if (grid[row][col] !== '.') continue;
+      const x = col * cell + cell / 2;
+      const z = row * cell + cell / 2;
+      SIDES.forEach(([dc, dr], s) => {
+        if (grid[row + dr][col + dc] !== '#') return;
+        const roll = hash(col * 7 + s, row * 3 - s);
+        const ex = x + dc * (cell / 2 - 0.22), ez = z + dr * (cell / 2 - 0.22); // just off the wall
+        const across = dc !== 0;
+        if (roll < 0.16) {
+          // A pier: planks on posts along the wall.
+          b.box(ex, 0.22, ez, across ? 0.42 : cell, 0.08, across ? cell : 0.42, WOOD_COL);
+          for (const t of [-0.8, 0, 0.8]) {
+            b.box(ex + (across ? 0 : t), -0.05, ez + (across ? t : 0), 0.09, 0.6, 0.09, DARK);
+          }
+          if (hash(col, row + s) > 0.5) {
+            // A lamp post on the pier.
+            b.box(ex, 0.75, ez, 0.06, 1.0, 0.06, [0.12, 0.12, 0.13]);
+            b.box(ex, 1.3, ez, 0.16, 0.18, 0.16, [1.0, 0.82, 0.5], 0.9);
+            b.box(ex, 1.42, ez, 0.22, 0.04, 0.22, [0.1, 0.1, 0.1]);
+          }
+        } else if (roll < 0.26) {
+          // A small moored rowboat, lying along the wall.
+          const bx = x + dc * (cell / 2 - 0.35), bz = z + dr * (cell / 2 - 0.35);
+          b.box(bx, 0.1, bz, across ? 0.42 : 1.1, 0.16, across ? 1.1 : 0.42, [0.32, 0.22, 0.14]);
+          b.box(bx, 0.19, bz, across ? 0.32 : 0.95, 0.04, across ? 0.95 : 0.32, [0.2, 0.13, 0.08]);
+          b.box(ex + dc * 0.1, 0.25, ez + dr * 0.1, 0.1, 0.3, 0.1, DARK); // its mooring post
+        } else if (roll < 0.34) {
+          // Mooring posts.
+          const t = (hash(row, col + s) - 0.5) * 1.2;
+          b.box(ex + (across ? 0 : t), 0.2, ez + (across ? t : 0), 0.13, 0.5, 0.13, DARK);
+        }
+      });
+      // Now and then, a crate floating near the middle of open water.
+      if (hash(col + 31, row + 17) > 0.975) {
+        b.box(x + 0.5, 0.05, z - 0.4, 0.38, 0.3, 0.38, [0.42, 0.3, 0.17]);
       }
     }
   }
+  if (!b.data.length) b.box(0, -50, 0, 0.01, 0.01, 0.01, DARK); // never an empty mesh
   return b.build(gl);
 }
 

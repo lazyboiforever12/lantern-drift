@@ -396,6 +396,11 @@ export class Renderer {
       // Boatyard preview: a close, low camera on the boat.
       eye = [b.x + 1.8, 5.4, b.z + 6.6];
       target = [b.x, 0.9, b.z];
+    } else if (this.photo) {
+      // Photo mode: a free orbit camera around the boat (yaw, pitch and distance from main.js).
+      const p = this.photo;
+      eye = [b.x + Math.sin(p.yaw) * Math.cos(p.pitch) * p.dist, 0.8 + Math.sin(p.pitch) * p.dist, b.z + Math.cos(p.yaw) * Math.cos(p.pitch) * p.dist];
+      target = [b.x, 0.8, b.z];
     } else if (this.cinematic) {
       // Title screen: a slow orbit around the demo boat, lower and closer than in play.
       const a = time * 0.11;

@@ -21,7 +21,13 @@ Mipmap captions are limited to 500 characters; this one is 446.
 
 > Ray tracing in raw WebGL2! Every light now casts real shadows: the shader walks each light ray through the town's building grid cell by cell (a 2D DDA), so flares throw long shadows down every street, and shadow creatures cast soft ones. Plus volumetric mist, 1080p/1440p/4K and 30-240/uncapped frame rates, a Daily Voyage (a new generated town every day, with streaks) and Endless mode. Still no engine. (Built with Claude Code, directed by me.)
 
-## Snapshot 4 (spare, needs shortening to 500 characters before posting)
+## Snapshot 4 (from 7:58 AM on 12 Nov, or 24 hours after Snapshot 3)
+**Image:** `docs/snapshot-photomode.png` (photo mode in The Storm)
+Caption: 473 characters.
+
+> Lantern Drift keeps growing: a photo mode (this shot), towns full of detail (roofs, chimneys, lit windows, piers, lamp posts), whirlpools that swallow shadows, ember shards to hunt, 25 achievements, and a title screen where a bot sails the levels live behind the menu. The boat now leans into turns and shadows stretch when they lunge. Plus wall foam and ambient occlusion from the same grid the ray-traced shadows use. Raw WebGL2. (Built with Claude Code, directed by me.)
+
+## Snapshot 5 (spare, needs shortening to 500 characters before posting)
 **Image:** `docs/snapshot-effects.png`
 
 > Graphics upgrade for Lantern Drift: procedural brick, roof and wood textures (a WebGL2 texture array with mipmaps and anisotropic filtering, triplanar-mapped so no UVs needed) and planar water reflections, so lit windows shimmer in the flood. The scene renders offscreen with 4x MSAA, then a bloom pass (bright-pass + separable Gaussian blur at quarter resolution), vignette, film grain, a colour split when you're hit, and a cold desaturated look when your oil runs low. Added instanced particles too (rain, flare sparks, lantern embers, shadow wisps) and a sweeping lighthouse beam. Plus generative music that gets tenser when shadows are near, and a settings menu. Still raw WebGL2, all shaders by hand. (Built with help from Claude Code.)
@@ -95,3 +101,5 @@ Mipmap captions are limited to 500 characters; this one is 446.
   Bot-tested: no stuck runs. 30 tests.
 - Live title screen: the play-test bot moved into `src/autopilot.js` and now sails the story levels behind the
   menu with a slow orbiting camera (visual only: no sound, Embers or achievements).
+- Game feel: the hull rolls into turns and pitches with acceleration; shadows squash and stretch; the camera leads.
+- Photo mode (C): frozen action, free orbit camera, F9 to save.

@@ -5,7 +5,7 @@ Collect oil, light the buoys, and reach the lighthouse before your lantern goes 
 
 Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL2, no engine).
 
-![A flare over Lantern Row: every building casts a ray-traced shadow, and the stunned shadows cast their own](docs/snapshot-raytraced.png)
+![Photo mode in The Storm: the lantern boat between lit houses, piers and lamp posts, reflected in the flood](docs/snapshot-photomode.png)
 
 ## Controls
 | | Keyboard | Gamepad | Touch |
@@ -17,6 +17,7 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 | Restart level | R | | |
 | Back to title (when paused) | Q | B | |
 | Settings (title or pause) | O | Y | tap "O settings" |
+| Photo mode (while playing) | C, then drag / WASD to orbit, scroll / Q E to zoom, F9 to save | | |
 | Mute | M | | |
 | Frame rate counter | F3 | | |
 
@@ -91,6 +92,8 @@ node serve.mjs
 Then open http://localhost:5173
 
 ## Graphics techniques (Tier Romeo)
+
+![A flare over Lantern Row: every building casts a ray-traced shadow, and the stunned shadows cast their own](docs/snapshot-raytraced.png)
 
 - **Ray-traced shadows:** every light casts real shadows. The level's buildings are uploaded as a small height texture
   (one texel per grid cell), and for each pixel and each light the fragment shader walks the ray to the light through
@@ -174,6 +177,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Photo mode, boat roll and pitch, squash-and-stretch shadows, look-ahead camera
 - [x] Live title screen: the autopilot sails the levels behind the menu with an orbiting camera
 - [x] Whirlpools and ember shards (in the editor, voyages and every story level), wall foam and ambient occlusion
 - [x] Town detail (roofs, chimneys, windows, piers, moored boats, lamp posts) and 23 achievements

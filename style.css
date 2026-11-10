@@ -95,6 +95,8 @@ canvas {
 #screen[data-screen="title"] { background: radial-gradient(ellipse at center, #0000 20%, #0008 75%, #000c); }
 #screen[data-screen="title"] h1, #screen[data-screen="title"] p, #screen[data-screen="title"] li { text-shadow: 0 1px 6px #000, 0 0 2px #000; }
 #screen.hidden { display: none; }
+#screen[data-screen="photo"] { background: none; justify-content: flex-end; pointer-events: none; }
+#screen .photo-hint { font-size: 13px; padding: 6px 14px; border-radius: 999px; background: #000a; opacity: 0.85; }
 #screen h1 {
   font-size: clamp(36px, 7vw, 64px);
   letter-spacing: 4px;

@@ -220,7 +220,7 @@ const hud = {
 let fpsFrames = 0, fpsTime = 0;
 
 function updateHud(dt) {
-  hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || state === 'shop' || (state === 'settings' && settingsFrom === 'title'));
+  hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || state === 'shop' || state === 'photo' || state === 'awards' || (state === 'settings' && settingsFrom === 'title'));
   hud.level.textContent = voyage
     ? (voyage.kind === 'daily' ? game.def.name : `Voyage ${voyage.depth + 1}: ${game.def.name}`)
     : customDef ? game.def.name : `Level ${levelIndex + 1}: ${game.def.name}`;
@@ -268,7 +268,7 @@ const SCREENS = {
     Keep your lantern burning, light every buoy, and wake the lighthouse.</p>
     <ul class="how">
       <li class="keys-only"><b>WASD / arrow keys</b> steer the boat</li>
-      <li class="keys-only"><b>Space</b> fires a flare that scatters shadows (costs oil)</li>
+      <li class="keys-only"><b>Space</b> fires a flare that scatters shadows (costs oil) \u00b7 <b>C</b> photo mode</li>
       <li class="touch-only"><b>◀ ▶</b> steer, <b>▲</b> rows forward</li>
       <li class="touch-only"><b>✦</b> fires a flare that scatters shadows (costs oil)</li>
       <li>Collect <b>oil cans</b>; your light shrinks as oil runs low</li>
@@ -342,6 +342,7 @@ const SCREENS = {
     <ul class="awards">${ACHIEVEMENTS.map((a) => `<li class="${awards.has(a.id) ? 'got' : ''}">
       <b>${awards.has(a.id) ? '\u{1F3C6}' : '\u{1F512}'} ${a.name}</b><span>${a.desc}</span><em>${a.embers} \u2726</em></li>`).join('')}</ul>
     <p class="small">Esc or Enter to go back</p>`,
+  photo: () => `<p class="photo-hint">\u{1F4F7} Photo mode \u00b7 drag or WASD to orbit \u00b7 scroll or Q / E to zoom \u00b7 F9 saves a picture \u00b7 C or Esc to go back</p>`,
   paused: () => `
     <h1>Paused</h1>
     <p class="go">Press P or tap to carry on</p>
@@ -527,6 +528,47 @@ function toTitle() {
   showScreen('title');
 }
 
+// ---------- Photo mode ----------
+// Freezes the game (the water and particles keep moving) and hands the camera to the player.
+const photoCam = { yaw: 0, pitch: 0.6, dist: 9 };
+function enterPhoto() {
+  state = 'photo';
+  Object.assign(photoCam, { yaw: 0, pitch: 0.6, dist: 9 });
+  renderer.photo = photoCam;
+  showScreen('photo');
+}
+function exitPhoto() {
+  state = 'playing';
+  renderer.photo = null;
+  showScreen(null);
+}
+function updatePhoto(dt) {
+  const turn = (keys.has('KeyA') || keys.has('ArrowLeft') ? -1 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0);
+  const tilt = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) + (keys.has('KeyS') || keys.has('ArrowDown') ? -1 : 0);
+  const zoom = (keys.has('KeyQ') ? -1 : 0) + (keys.has('KeyE') ? 1 : 0);
+  photoCam.yaw += turn * dt * 1.4;
+  photoCam.pitch = Math.max(0.08, Math.min(1.45, photoCam.pitch + tilt * dt * 0.9));
+  photoCam.dist = Math.max(3, Math.min(30, photoCam.dist * (1 + zoom * dt * 1.2)));
+}
+let photoDrag = null;
+canvas.addEventListener('pointerdown', (e) => {
+  if (state !== 'photo') return;
+  photoDrag = { x: e.clientX, y: e.clientY };
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!photoDrag) return;
+  photoCam.yaw -= (e.clientX - photoDrag.x) * 0.008;
+  photoCam.pitch = Math.max(0.08, Math.min(1.45, photoCam.pitch + (e.clientY - photoDrag.y) * 0.006));
+  photoDrag = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('pointerup', () => { photoDrag = null; });
+canvas.addEventListener('wheel', (e) => {
+  if (state !== 'photo') return;
+  e.preventDefault();
+  photoCam.dist = Math.max(3, Math.min(30, photoCam.dist * (1 + Math.sign(e.deltaY) * 0.1)));
+}, { passive: false });
+
 // ---------- Title demo ----------
 // Behind the title menu the autopilot sails the story levels one after another, with a slow
 // orbiting camera. It's only a show: no sound, Embers, achievements or saved progress.
@@ -670,7 +712,11 @@ function onPress(code, e) {
       } else if (code === 'KeyR') restart();
       else if (code === 'KeyQ') { if (customDef) openEditor(); else toTitle(); }
       break;
+    case 'photo':
+      if (code === 'KeyC' || code === 'Escape' || code === 'KeyP') exitPhoto();
+      break;
     case 'playing':
+      if (code === 'KeyC') { enterPhoto(); break; }
       if (code === 'Space') game.flare();
       else if (code === 'KeyR') restart();
       else if (code === 'KeyP' || code === 'Escape') {
@@ -916,6 +962,7 @@ function tick(dt) {
   }
   renderer.cinematic = inMenus();
   if (renderer.cinematic) updateDemo(dt);
+  if (state === 'photo') updatePhoto(dt);
   if (state === 'playing') {
     playTimer += dt;
     if (playTimer >= 10) { awards.record('playTime', 10); playTimer -= 10; writeSave(); }

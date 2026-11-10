@@ -148,8 +148,18 @@ function tip(id, text, condition) {
   say(text, 4.5);
 }
 function checkTips() {
-  if (levelIndex !== 0 || customDef || voyage || messageTimer > 1) return;
+  if (messageTimer > 1) return;
   const b = game.boat;
+  // First sight of each newer feature, in any level or mode (each tip shows once ever).
+  const near = (list, r) => list.some((p) => !p.taken && Math.hypot(p.x - b.x, p.z - b.z) < r);
+  const touchUI = !touchEl.classList.contains('hidden');
+  tip('whirl', 'A whirlpool! It pulls you in. Skim the edge, and lure shadows into the middle', near(game.whirlpools, 9));
+  tip('wisp', 'A wisp: small and quick, but it steals less oil', near(game.creatures.filter((c) => c.kind === 'wisp'), 10));
+  tip('brute', 'A brute! The first flare only staggers it. Hit it with a second', near(game.creatures.filter((c) => c.kind === 'brute'), 11));
+  tip('shard', 'An ember shard: optional treasure worth Embers', near(game.shards, 7));
+  tip('dash', touchUI ? 'Tap » to dash: a burst of speed for a little oil' : 'Press Shift to dash: a burst of speed for a little oil',
+    (levelIndex >= 1 || voyage) && game.time > 6);
+  if (levelIndex !== 0 || customDef || voyage) return;
   const speed = Math.hypot(b.vx, b.vz);
   const nearest = Math.min(99, ...game.creatures.map((c) => Math.hypot(c.x - b.x, c.z - b.z)));
   tip('row', 'Hold W or \u2191 to row forward, A / D to turn', game.time > 4 && speed < 0.5);

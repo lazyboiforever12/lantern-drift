@@ -91,6 +91,11 @@ canvas {
 #screen .blessings small { opacity: 0.85; }
 #screen .blessed span { font-size: 18px; margin: 0 2px; cursor: help; }
 
+#screen .menu { display: grid; gap: 8px; margin-top: 14px; min-width: min(300px, 80vw); }
+#screen .menu button { padding: 11px 16px; cursor: pointer; text-align: left; font: 600 15px system-ui, sans-serif;
+  color: #f3e6c8; background: #10182599; border: 1px solid #ffd27a44; border-radius: 10px; }
+#screen .menu button:hover { border-color: #ffd27a; background: #ffb34726; }
+#screen .menu button b { display: inline-block; width: 1.6em; color: #ffd27a; }
 #screen .modes { display: flex; gap: 1.2em; justify-content: center; flex-wrap: wrap; margin: 0.6em 0 0.2em; }
 #screen .modes span { text-decoration: none; cursor: pointer; padding: 0.35em 0.9em; border: 1px solid rgba(255, 200, 120, 0.35);
   border-radius: 999px; background: rgba(255, 170, 80, 0.08); }

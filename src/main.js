@@ -378,9 +378,14 @@ const SCREENS = {
   photo: () => `<p class="photo-hint">\u{1F4F7} Photo mode \u00b7 drag or WASD to orbit \u00b7 scroll or Q / E to zoom \u00b7 F9 saves a picture \u00b7 C or Esc to go back</p>`,
   paused: () => `
     <h1>Paused</h1>
-    <p class="go">Press P or tap to carry on</p>
-    <p class="sub">R restart the level \u00b7 Q back to the title</p>
-    <p class="small" data-action="settings">O settings</p>`,
+    <p class="sub">${hud.level.textContent} \u00b7 ${formatTime(game.time)} \u00b7 oil ${Math.round(game.oilPct)}%</p>
+    ${blessingList()}
+    <div class="menu">
+      <button data-action="resume"><b>P</b> Carry on</button>
+      <button data-action="restart"><b>R</b> Restart</button>
+      <button data-action="settings"><b>O</b> Settings</button>
+      <button data-action="quit"><b>Q</b> ${customDef ? 'Back to the editor' : 'Quit to the title'}</button>
+    </div>`,
   settings: () => `
     <h1>Settings</h1>
     <ul class="settings">${SETTING_ROWS.map((row, i) => {
@@ -909,6 +914,14 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-action="resume"]')) {
+    onPress('KeyP');
+  } else if (e.target.closest('[data-action="restart"]')) {
+    onPress('KeyR');
+  } else if (e.target.closest('[data-action="quit"]')) {
+    onPress('KeyQ');
+  } else if (state === 'paused' && !e.target.closest('[data-action]')) {
+    // Tapping outside the buttons does nothing while paused, so a stray tap can't resume by accident.
   } else if (e.target.closest('[data-bless]')) {
     if (state === 'voyageClear') pickBlessing(Number(e.target.closest('[data-bless]').dataset.bless));
   } else if (e.target.closest('[data-action="share"]')) {

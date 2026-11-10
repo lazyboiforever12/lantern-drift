@@ -10,7 +10,12 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 
 > Lantern Drift now has 5 levels! The last two add currents, water that carries your boat, shown by drifting streaks. Also new: a foam wake behind the boat, saved progress with best times and a level select, plus gamepad and touch controls. I tuned the difficulty with two play-test bots that play every level 40 times, so each level is a bit harder than the last. Raw WebGL2, no engine. (Built with help from Claude Code.)
 
-## Snapshot 2 (post tomorrow)
+## Snapshot 2 (can be sent from 3:25 PM on 10 Nov)
+**Image:** `docs/snapshot-boatyard.png` (the aircraft carrier in the new Boatyard, with its patrol plane circling)
+
+> Huge Lantern Drift update: a Boatyard! Earn Embers by clearing levels and spend them on 22 boats, from a bed mattress and a comfy couch up to the Titanic, an aircraft carrier and an old battleship. Each has its own stats and a special trait (the sub hides from shadows, the carrier's plane lights buoys from further away, the battleship's armour halves stolen oil), upgrades, 17 paints, and animated parts: radars, propellers, turrets, paddle wheels and funnel smoke. Also new: a storm level, a level editor with share links, an ending with fireworks, and shadows that can't pass through walls any more (they path around buildings with a flow field). Raw WebGL2, no engine. (Built with Claude Code, directed by me.)
+
+## Snapshot 3 (spare)
 **Image:** `docs/snapshot-effects.png`
 
 > Graphics upgrade for Lantern Drift: procedural brick, roof and wood textures (a WebGL2 texture array with mipmaps and anisotropic filtering, triplanar-mapped so no UVs needed) and planar water reflections, so lit windows shimmer in the flood. The scene renders offscreen with 4x MSAA, then a bloom pass (bright-pass + separable Gaussian blur at quarter resolution), vignette, film grain, a colour split when you're hit, and a cold desaturated look when your oil runs low. Added instanced particles too (rain, flare sparks, lantern embers, shadow wisps) and a sweeping lighthouse beam. Plus generative music that gets tenser when shadows are near, and a settings menu. Still raw WebGL2, all shaders by hand. (Built with help from Claude Code.)

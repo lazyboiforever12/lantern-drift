@@ -492,8 +492,16 @@ export class Renderer {
     }
 
     // Pass 2: the real scene, into the post-processing buffer (or straight to the screen).
-    if (this.postActive) this.post.begin(w, h);
-    else {
+    if (this.postActive) {
+      try {
+        this.post.begin(w, h);
+      } catch (err) {
+        // Not enough GPU memory for the effects at this size: carry on without them.
+        console.warn('Post-processing off:', err.message);
+        this.post = null;
+      }
+    }
+    if (!this.postActive) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, w, h);
     }

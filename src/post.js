@@ -133,18 +133,21 @@ export class PostProcess {
     this.size = [w, h];
     const gl = this.gl;
     if (this.targets) this.free();
-    // Multisampled colour + depth to draw the scene into.
+    // Multisampled colour + depth to draw the scene into. Very large buffers (4K) are already
+    // supersampled, so 2 samples are enough there and save a lot of memory.
+    const samples = w * h > 6e6 ? Math.min(2, this.samples) : this.samples;
     const msFbo = gl.createFramebuffer();
     const msColor = gl.createRenderbuffer();
     const msDepth = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, msColor);
-    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.samples, gl.RGBA8, w, h);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, w, h);
     gl.bindRenderbuffer(gl.RENDERBUFFER, msDepth);
-    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.samples, gl.DEPTH_COMPONENT24, w, h);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h);
     gl.bindFramebuffer(gl.FRAMEBUFFER, msFbo);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msColor);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, msDepth);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+    if (gl.getError() === gl.OUT_OF_MEMORY || gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       throw new Error('Offscreen framebuffer is not supported here');
     }
     const qw = Math.max(1, w >> 2), qh = Math.max(1, h >> 2);

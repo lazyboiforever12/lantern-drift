@@ -15,8 +15,8 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 | Flare | Space | A | ✦ button |
 | Dash (a burst of speed, costs a little oil) | Shift | B or RB | » button |
 | Pause | P or Esc | Start | II button |
-| Restart level | R | | |
-| Back to title (when paused) | Q | B | |
+| Restart level | R | X (when paused) | Pause menu button |
+| Back to title (when paused) | Q | Back / Select | Pause menu button |
 | Settings (title or pause) | O | Y | tap "O settings" |
 | Photo mode (while playing) | C, then drag / WASD to orbit, scroll / Q E to zoom, F9 to save | | 📷 button, drag to orbit |
 | Mute | M | | |

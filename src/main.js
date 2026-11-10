@@ -870,6 +870,15 @@ function readGamepad() {
     if (padPressed('left', btn(14) || x < -0.5)) onPress('ArrowLeft');
     if (padPressed('right', btn(15) || x > 0.5)) onPress('ArrowRight');
   }
+  if (state === 'voyageClear') {
+    // Choose a blessing with the d-pad or stick, then A to sail on.
+    if (padPressed('left', btn(14) || x < -0.5)) onPress('ArrowLeft');
+    if (padPressed('right', btn(15) || x > 0.5)) onPress('ArrowRight');
+  }
+  if (state === 'paused') {
+    if (padPressed('x', btn(2))) onPress('KeyR');      // X restarts
+    if (padPressed('select', btn(8))) onPress('KeyQ'); // Back / Select quits
+  }
   if (padPressed('y', btn(3)) && (state === 'title' || state === 'paused')) onPress('KeyO');
   return out;
 }

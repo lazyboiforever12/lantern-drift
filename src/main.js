@@ -313,13 +313,14 @@ const SCREENS = {
     <p class="sub">${game.def.name} is safe. Oil left: ${Math.round(game.oil)}</p>
     <p class="sub">Time ${formatTime(lastClear.time)} · ${lastClear.best ? '<b class="best">New best!</b>' : `Best ${formatTime(save.best[levelIndex])}`}</p>
     ${emberLine()}
-    <p class="go">Press Enter for level ${levelIndex + 2}</p>`,
+    <p class="go">Press Enter for level ${levelIndex + 2}</p>
+    <p class="small"><span data-action="back">Esc back to the title</span></p>`,
   gameOver: () => `
     <h1>Your lantern went out</h1>
     <p class="sub">The shadows close in around the little boat.</p>
     ${emberLine()}
     <p class="go">Press Enter to try again</p>
-    ${customDef ? '<p class="small">Esc back to the editor</p>' : ''}`,
+    <p class="small"><span data-action="back">Esc back to the ${customDef ? 'editor' : 'title'}</span></p>`,
   customClear: () => `
     <h1>You beat your level!</h1>
     <p class="sub">Time ${formatTime(lastClear.time)} \u00b7 oil left ${Math.round(game.oil)}</p>
@@ -352,7 +353,7 @@ const SCREENS = {
       <span class="ico">${b.icon}</span><b>${i + 1}. ${b.name}</b><small>${b.desc}</small></button>`).join('')}</div>
     ${blessingList()}
     <p class="go">Press 1, 2 or 3 (or Enter) to sail on</p>
-    <p class="small">Esc ends the run</p>`,
+    <p class="small"><span data-action="back">Esc ends the run</span></p>`,
   voyageOver: () => `
     <h1>The voyage ends</h1>
     <p class="sub">Your lantern went out on voyage ${voyage.depth + 1}. You cleared <b>${voyage.depth}</b>.</p>
@@ -360,14 +361,14 @@ const SCREENS = {
     <p class="sub">${lastClear.newBest ? '<b class="best">New best run!</b>' : `Best run: ${save.endlessBest || 0} voyage${save.endlessBest === 1 ? '' : 's'}`}</p>
     ${emberLine()}
     <p class="go">Press Enter for a new run</p>
-    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 Esc back to the title</p>`,
+    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 <span data-action="back">Esc back to the title</span></p>`,
   dailyClear: () => `
     <h1>Daily Voyage complete</h1>
     <p class="sub">${game.def.name} \u00b7 ${formatTime(lastClear.time)} ${lastClear.best ? '\u00b7 <b class="best">Your best today!</b>' : `\u00b7 best ${formatTime(save.daily[voyage.date])}`}</p>
     <p class="sub">Streak: <b>${save.dailyStreak} day${save.dailyStreak === 1 ? '' : 's'}</b> \u2014 a new voyage appears at midnight</p>
     ${emberLine()}
     <p class="go">Press Enter to sail it again</p>
-    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 Esc back to the title</p>`,
+    <p class="small"><span data-action="share">S copy your result to share</span> \u00b7 <span data-action="back">Esc back to the title</span></p>`,
   awards: () => `
     <h1>Achievements</h1>
     <p class="sub">${awards.count} of ${ACHIEVEMENTS.length} unlocked \u00b7 each one pays Embers</p>
@@ -914,6 +915,8 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-action="back"]')) {
+    onPress('Escape');
   } else if (e.target.closest('[data-action="resume"]')) {
     onPress('KeyP');
   } else if (e.target.closest('[data-action="restart"]')) {

@@ -103,3 +103,6 @@ Caption: 473 characters.
   menu with a slow orbiting camera (visual only: no sound, Embers or achievements).
 - Game feel: the hull rolls into turns and pitches with acceleration; shadows squash and stretch; the camera leads.
 - Photo mode (C): frozen action, free orbit camera, F9 to save.
+- Share results (S) from the Daily Voyage and Endless; a photo button for touch screens.
+- Night sky pass (`src/sky.js`): inverse view-projection rays, stars, moon and halo, fbm clouds, mirrored into the
+  water reflection. 31 tests.

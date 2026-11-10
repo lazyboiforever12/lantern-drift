@@ -5,7 +5,8 @@ import { CURRENTS } from './levels.js';
 import { PostProcess } from './post.js';
 import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
-import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate } from './math.js';
+import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate, invert } from './math.js';
+import { Sky } from './sky.js';
 import {
   boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh, whirlpoolMesh, shardMesh,
 } from './meshes.js';
@@ -18,6 +19,8 @@ const NO_TEX = [-1, -1, 1];
 const MIRROR_Y = new Float32Array([1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const WAKE_LIFE = 1.4;   // seconds a fleck of foam lasts
 const WAKE_MAX = 60;
+// Where the moon hangs: north-west and fairly low, so it shows in photos and on the water.
+const MOON = (() => { const m = [-0.38, 0.5, -0.78]; const l = Math.hypot(...m); return m.map((v) => v / l); })();
 
 export class Renderer {
   constructor(canvas) {
@@ -81,6 +84,12 @@ export class Renderer {
       this.post = null;
     }
     this.particles = new Particles(gl);
+    try {
+      this.sky = new Sky(gl);
+    } catch (err) {
+      console.warn('Sky off:', err.message);
+      this.sky = null;
+    }
     this.shakeAmount = 0;
     this.fade = 0;
     this.timers = { rain: 0, ember: 0, wisp: 0 };
@@ -419,7 +428,7 @@ export class Renderer {
     gl.uniform1f(u.uTime, time);
     gl.uniform3fv(u.uCamPos, eye);
     gl.uniform3f(u.uAmbient, 0.012, 0.014, 0.026);
-    const md = [-0.4, 1, 0.3];
+    const md = MOON;
     const ml = Math.hypot(...md);
     gl.uniform3f(u.uMoonDir, md[0] / ml, md[1] / ml, md[2] / ml);
     gl.uniform3f(u.uMoonColor, 0.022, 0.028, 0.05);
@@ -461,7 +470,13 @@ export class Renderer {
       gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo);
       gl.viewport(0, 0, rt.w, rt.h);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.uniformMatrix4fv(u.uViewProj, false, multiply(viewProj, MIRROR_Y));
+      const mirrored = multiply(viewProj, MIRROR_Y);
+      if (this.sky) {
+        // Seen from the mirrored camera (below the water), the sky is what the water reflects.
+        this.sky.draw(invert(mirrored), [eye[0], -eye[1], eye[2]], MOON, time);
+        gl.useProgram(this.program);
+      }
+      gl.uniformMatrix4fv(u.uViewProj, false, mirrored);
       gl.uniform1i(u.uClip, 1);
       gl.uniform1i(u.uReflect, 0);
       this.drawObjects(game, time, b);
@@ -476,6 +491,10 @@ export class Renderer {
       gl.viewport(0, 0, w, h);
     }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (this.sky) {
+      this.sky.draw(invert(viewProj), eye, MOON, time);
+      gl.useProgram(this.program);
+    }
     gl.uniform2f(u.uViewport, w, h);
     gl.uniform1i(u.uReflect, reflecting ? 1 : 0);
     gl.activeTexture(gl.TEXTURE3);

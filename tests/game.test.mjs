@@ -393,3 +393,12 @@ test('ember shards are picked up once, and the checker keeps whirlpools away fro
   assert.ok(checkLevel(near).some((p) => p.includes('whirlpool')));
   for (const def of LEVELS) assert.equal(new Game(def, 0).shards.length, 3, def.name);
 });
+
+// ---------- Maths ----------
+import { invert, multiply as mul, perspective as persp, lookAt as look } from '../src/math.js';
+
+test('a matrix times its inverse is the identity (the sky relies on it)', () => {
+  const m = mul(persp(0.8, 1.6, 0.5, 120), look([4, 21, 12], [4, 0, 5.5]));
+  const p = mul(m, invert(m));
+  for (let i = 0; i < 16; i++) assert.ok(Math.abs(p[i] - (i % 5 === 0 ? 1 : 0)) < 1e-4);
+});

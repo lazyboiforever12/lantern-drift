@@ -109,6 +109,7 @@ Then open http://localhost:5173
 - **Weather:** rain (streak particles), snow (drifting flakes, snow-covered roofs and a brighter, moonlit ambient), fog
   (thick glowing mist and drifting fog banks) or a clear night. The Canals are foggy, Ember Bay is clear, Lighthouse
   Point is snowed in, voyages pick their own, and the editor has a weather setting that travels in share links.
+  Each weather has its own sound too: a looping noise buffer shaped by a filter, with a slow gust on its volume.
 - **Night sky** (`src/sky.js`): a full-screen pass rebuilds each pixel's view ray from the inverse view-projection
   matrix (hand-written 4x4 inverse in `src/math.js`) and draws a gradient with a warm haze over the town, twinkling
   stars, a moon with a halo and drifting fbm-noise clouds lit from behind. It's drawn mirrored in the reflection pass

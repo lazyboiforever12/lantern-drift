@@ -997,6 +997,9 @@ function tick(dt) {
       sound.play('firework');
     }
   }
+  // The weather's sound follows whatever level is on screen (the title demo too).
+  const weather = game.def.storm ? 'storm' : game.def.weather || 'rain';
+  sound.setWeather(settings.rain && state !== 'editor' && state !== 'shop' ? weather : 'none');
   renderer.cinematic = inMenus();
   if (renderer.cinematic) updateDemo(dt);
   if (state === 'photo') updatePhoto(dt);

@@ -27,6 +27,7 @@ export class Sound {
       this.musicBus.connect(this.master);
       this.applyVolume();
       this.startAmbience();
+      this.startWeather();
       this.startMusic();
     } else if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -155,6 +156,51 @@ export class Sound {
       o.connect(g);
       o.start();
     }
+  }
+
+  // Weather sound: one looping buffer of white noise, shaped by a filter, with a slow "gust" wobble
+  // on its volume. setWeather() glides the filter and volume to suit rain, snow wind, fog or a calm night.
+  startWeather() {
+    const ctx = this.ctx;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    this.weatherFilter = ctx.createBiquadFilter();
+    this.weatherGain = ctx.createGain();
+    this.weatherGain.gain.value = 0;
+    const gust = ctx.createOscillator();
+    this.gustDepth = ctx.createGain();
+    gust.frequency.value = 0.13;
+    this.gustDepth.gain.value = 0;
+    gust.connect(this.gustDepth).connect(this.weatherGain.gain);
+    src.connect(this.weatherFilter).connect(this.weatherGain).connect(this.sfx);
+    src.start();
+    gust.start();
+    this.weather = null;
+    if (this.pendingWeather) this.setWeather(this.pendingWeather);
+  }
+
+  setWeather(kind) {
+    if (!this.ctx || !this.weatherGain) { this.pendingWeather = kind; return; }
+    if (kind === this.weather) return;
+    this.weather = kind;
+    const t = this.ctx.currentTime;
+    const shape = {
+      rain: { type: 'bandpass', freq: 2600, q: 0.4, vol: 0.09, gust: 0.015 },
+      storm: { type: 'bandpass', freq: 1800, q: 0.3, vol: 0.14, gust: 0.05 },
+      snow: { type: 'lowpass', freq: 420, q: 0.7, vol: 0.07, gust: 0.05 },
+      fog: { type: 'lowpass', freq: 220, q: 0.5, vol: 0.05, gust: 0.01 },
+      clear: { type: 'lowpass', freq: 320, q: 0.5, vol: 0.02, gust: 0.008 },
+      none: { type: 'lowpass', freq: 300, q: 0.5, vol: 0, gust: 0 },
+    }[kind] || { type: 'lowpass', freq: 300, q: 0.5, vol: 0, gust: 0 };
+    this.weatherFilter.type = shape.type;
+    this.weatherFilter.frequency.setTargetAtTime(shape.freq, t, 0.5);
+    this.weatherFilter.Q.value = shape.q;
+    this.weatherGain.gain.setTargetAtTime(shape.vol, t, 0.8);
+    this.gustDepth.gain.setTargetAtTime(shape.gust, t, 0.8);
   }
 
   tone(freq, dur, { type = 'sine', vol = 0.3, slideTo = null, delay = 0 } = {}) {

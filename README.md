@@ -79,6 +79,8 @@ Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and shar
 - **Whirlpools** pull in your boat and the shadows. Skim the edge for a slingshot; get caught in the middle and you're
   spat out with less oil. Lure a shadow into one and it's stunned.
 - **Ember shards** are optional treasure: each one pays Embers. Every story level hides three, and voyages have more.
+- A **minimap** in the corner shows walls, currents, buoys (red until lit), shards, the lighthouse and your boat.
+  Shadows aren't on it, so you still have to keep watch. It can be switched off in Settings.
 - Your progress and best time for each level are saved in the browser.
 
 ## Levels
@@ -191,6 +193,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Minimap (Canvas 2D overlay)
 - [x] New shadows: wisps and brutes (editor, voyages, achievement)
 - [x] Endless blessings: pick 1 of 3 run upgrades after each voyage
 - [x] Weather: rain, snow, fog and clear nights

@@ -21,6 +21,10 @@ canvas {
   text-shadow: 0 1px 3px #000;
 }
 #hud.hidden { display: none; }
+#hud .minimap { position: absolute; left: 16px; bottom: 16px; width: min(190px, 34vw); height: auto; max-height: 24vh; object-fit: contain; opacity: 0.85;
+  border: 1px solid #f3e6c855; border-radius: 6px; image-rendering: pixelated; box-shadow: 0 0 12px #0008; }
+#hud .minimap.hidden { display: none; }
+@media (pointer: coarse) { #hud .minimap { left: auto; right: 16px; bottom: auto; top: 76px; width: min(150px, 34vw); } }
 #hud > span { position: absolute; top: 14px; }
 #hud .level { left: 16px; font-weight: 600; }
 #hud .oil-label { left: 16px; top: 40px; }

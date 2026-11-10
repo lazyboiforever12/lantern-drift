@@ -10,6 +10,7 @@ import { generateVoyage, dailyVoyage, todayKey } from './voyages.js';
 import { Achievements, ACHIEVEMENTS } from './achievements.js';
 import { createAutopilot } from './autopilot.js';
 import { rollBlessings, applyBlessings, blessingById } from './blessings.js';
+import { Minimap } from './minimap.js';
 
 const canvas = document.getElementById('game');
 const hudEl = document.getElementById('hud');
@@ -75,7 +76,7 @@ let fireworkTimer = 0;
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
 const settings = {
   bloom: true, reflections: true, rtShadows: true, fog: true, resolution: 'auto', fpsCap: 'vsync',
-  shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false,
+  shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false, minimap: true,
 };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* defaults */ }
 function applySettings() {
@@ -115,6 +116,7 @@ const SETTING_ROWS = [
   { key: 'rain', label: 'Weather (rain, snow, fog)', type: 'bool' },
   { key: 'sound', label: 'Sound volume', type: 'level' },
   { key: 'music', label: 'Music volume', type: 'level' },
+  { key: 'minimap', label: 'Minimap', type: 'bool' },
   { key: 'fps', label: 'Show frame rate', type: 'bool' },
   { key: 'back', label: 'Back', type: 'back' },
 ];
@@ -221,7 +223,10 @@ const hud = {
 };
 let fpsFrames = 0, fpsTime = 0;
 
+const minimap = new Minimap(hudEl);
 function updateHud(dt) {
+  minimap.canvas.classList.toggle('hidden', !settings.minimap);
+  if (settings.minimap && state === 'playing') minimap.draw(game, time);
   hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || state === 'shop' || state === 'photo' || state === 'awards' || (state === 'settings' && settingsFrom === 'title'));
   hud.level.textContent = voyage
     ? (voyage.kind === 'daily' ? game.def.name : `Voyage ${voyage.depth + 1}: ${game.def.name}`)

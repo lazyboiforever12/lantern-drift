@@ -360,6 +360,7 @@ const SCREENS = {
   awards: () => `
     <h1>Achievements</h1>
     <p class="sub">${awards.count} of ${ACHIEVEMENTS.length} unlocked \u00b7 each one pays Embers</p>
+    ${statsLine()}
     <ul class="awards">${ACHIEVEMENTS.map((a) => `<li class="${awards.has(a.id) ? 'got' : ''}">
       <b>${awards.has(a.id) ? '\u{1F3C6}' : '\u{1F512}'} ${a.name}</b><span>${a.desc}</span><em>${a.embers} \u2726</em></li>`).join('')}</ul>
     <p class="small">Esc or Enter to go back</p>`,
@@ -564,6 +565,19 @@ function toTitle() {
   levelIndex = 0;
   startDemo();
   showScreen('title');
+}
+
+// Lifetime totals for the achievements screen.
+function statsLine() {
+  const st = save.stats || {};
+  const mins = Math.floor((st.playTime || 0) / 60);
+  const items = [
+    ['Sailed', mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`],
+    ['Buoys lit', st.buoys || 0], ['Oil cans', st.oils || 0], ['Flares', st.flares || 0], ['Shards', st.shards || 0],
+    ['Best Endless', save.endlessBest ? `voyage ${save.endlessBest + 1}` : '—'],
+    ['Daily streak', save.dailyStreak || 0], ['Boats owned', Object.keys(yard.boats).length],
+  ];
+  return `<p class="stats-line">${items.map(([k, v]) => `<span><small>${k}</small><b>${v}</b></span>`).join('')}</p>`;
 }
 
 // ---------- Sharing a result ----------

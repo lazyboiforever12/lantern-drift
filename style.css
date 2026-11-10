@@ -70,6 +70,10 @@ canvas {
 #toast.show { transform: translate(-50%, 0); }
 #toast b { color: #ffd27a; }
 #toast em { color: #ffc879; font-style: normal; font-weight: 700; }
+#screen .stats-line { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; margin: 4px 0 8px; }
+#screen .stats-line span { display: grid; justify-items: center; min-width: 74px; }
+#screen .stats-line small { font-size: 11px; opacity: 0.7; }
+#screen .stats-line b { color: #ffd27a; }
 #screen .awards { list-style: none; padding: 0; margin: 0.5em auto; max-width: 760px; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; text-align: left; max-height: 60vh; overflow-y: auto; }
 #screen .awards li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 10px; border-radius: 8px;

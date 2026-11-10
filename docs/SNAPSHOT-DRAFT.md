@@ -84,3 +84,8 @@ Mipmap captions are limited to 500 characters; this one is 446.
 - Level editor v2: Brush / Box / Fill tools, Mirror, undo and redo, level name, difficulty (Calm to Nightmare) and
   twist saved in share links (old links still load), a Random button using the voyage generator, a step-by-step
   guide, and live balance tips. 25 tests.
+- Town detail: each building cell gets a pitched or flat roof, maybe a chimney, and framed windows (lit or dark) on
+  every side facing water; a props mesh adds piers, moored rowboats, mooring posts, lamp posts and floating crates.
+- 23 achievements with Embers rewards, toasts and an achievements screen.
+- Fixed a save bug: loading kept only level progress, so Embers, boats and tips were lost on every reload.
+- 27 tests.

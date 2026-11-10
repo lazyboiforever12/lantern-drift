@@ -57,6 +57,23 @@ canvas {
   opacity: 0;
 }
 
+#toast {
+  position: fixed; top: 14px; left: 50%; z-index: 20; transform: translate(-50%, -140%);
+  display: flex; gap: 10px; align-items: baseline; padding: 10px 18px; border-radius: 12px;
+  background: #1a1408ee; border: 1px solid #ffd27a; box-shadow: 0 0 24px #ffb34766;
+  color: #f3e6c8; font: 14px system-ui, sans-serif; transition: transform 0.35s ease; pointer-events: none;
+}
+#toast.show { transform: translate(-50%, 0); }
+#toast b { color: #ffd27a; }
+#toast em { color: #ffc879; font-style: normal; font-weight: 700; }
+#screen .awards { list-style: none; padding: 0; margin: 0.5em auto; max-width: 760px; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; text-align: left; max-height: 60vh; overflow-y: auto; }
+#screen .awards li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 10px; border-radius: 8px;
+  background: #ffffff0d; opacity: 0.55; font-size: 13px; }
+#screen .awards li.got { opacity: 1; background: #ffb34722; border: 1px solid #ffd27a55; }
+#screen .awards li span { grid-column: 1; font-size: 12px; opacity: 0.8; }
+#screen .awards li em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; color: #ffc879; }
+
 #screen .modes { display: flex; gap: 1.2em; justify-content: center; flex-wrap: wrap; margin: 0.6em 0 0.2em; }
 #screen .modes span { cursor: pointer; padding: 0.35em 0.9em; border: 1px solid rgba(255, 200, 120, 0.35);
   border-radius: 999px; background: rgba(255, 170, 80, 0.08); }

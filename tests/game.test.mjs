@@ -312,3 +312,32 @@ test('the editor\'s Random button builds fair 32 x 16 maps', () => {
     assert.deepEqual(checkLevel(def), []);
   }
 });
+
+// ---------- Achievements ----------
+import { Achievements, ACHIEVEMENTS } from '../src/achievements.js';
+
+test('achievements unlock once, from totals, clears and the Boatyard', () => {
+  const save = {};
+  const got = [];
+  const a = new Achievements(save, (x) => got.push(x.id));
+  a.record('buoys');
+  a.record('buoys');
+  assert.deepEqual(got, ['firstLight']);
+  for (let i = 0; i < 10; i++) a.record('flares');
+  assert.ok(a.has('flares10') && !a.has('flares100'));
+  a.cleared({ kind: 'story', levelIndex: 0, time: 35, oilPct: 80, hits: 0 });
+  for (const id of ['harbour', 'untouched', 'thrifty', 'speedy']) assert.ok(a.has(id), id);
+  a.cleared({ kind: 'endless', voyage: 5, oilPct: 50, hits: 2 });
+  assert.ok(a.has('voyage5') && !a.has('voyage10'));
+  a.boatyard({ boats: { skiff: { engine: 3 }, tug: {} }, paints: ['oak', 'tar', 'red'] }, 2);
+  for (const id of ['shipowner', 'tinkerer', 'painter']) assert.ok(a.has(id), id);
+  assert.equal(new Set(got).size, got.length); // nothing unlocked twice
+  assert.equal(new Set(ACHIEVEMENTS.map((x) => x.id)).size, ACHIEVEMENTS.length);
+});
+
+test('a flare reports how many shadows it stunned', () => {
+  const g = new Game(LEVELS[1], 1);
+  for (const c of g.creatures) { c.x = g.boat.x + 1; c.z = g.boat.z; }
+  g.flare();
+  assert.equal(g.events.find((e) => e.type === 'flare').stunned, g.creatures.length);
+});

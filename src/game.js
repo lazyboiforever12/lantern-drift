@@ -180,9 +180,11 @@ export class Game {
     this.flareTime = FLARE_TIME;
     this.flareCooldown = 1.5 * st.flareCooldown;
     const b = this.boat;
+    let stunned = 0;
     for (const c of this.creatures) {
       const d = dist(c.x, c.z, b.x, b.z);
       if (d < FLARE_RANGE * st.flareRange) {
+        stunned++;
         const ux = (c.x - b.x) / (d || 1), uz = (c.z - b.z) / (d || 1);
         c.vx = ux * 10;
         c.vz = uz * 10;
@@ -190,7 +192,7 @@ export class Game {
         c.lunge = 0;
       }
     }
-    this.events.push({ type: 'flare' });
+    this.events.push({ type: 'flare', stunned });
   }
 
   update(dt, input) {

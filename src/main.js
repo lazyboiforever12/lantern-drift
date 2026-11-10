@@ -7,6 +7,7 @@ import { createShop } from './shop.js';
 import { BOATS, boatById, boatStats, boatPaint, defaultBoatyard } from './boats.js';
 import { Sound } from './audio.js';
 import { generateVoyage, dailyVoyage, todayKey } from './voyages.js';
+import { Achievements, ACHIEVEMENTS } from './achievements.js';
 
 const canvas = document.getElementById('game');
 const hudEl = document.getElementById('hud');
@@ -38,7 +39,8 @@ const SAVE_KEY = 'lanternDrift.save.v1';
 function loadSave() {
   try {
     const data = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (data && typeof data.unlocked === 'number') return { unlocked: data.unlocked, best: data.best || {} };
+    // Keep everything in the save (Boatyard, streaks, achievements...), not just the level progress.
+    if (data && typeof data.unlocked === 'number') return { ...data, best: data.best || {} };
   } catch { /* private mode or bad data: start fresh */ }
   return { unlocked: 1, best: {} };
 }
@@ -157,6 +159,33 @@ function earn(n) {
   writeSave();
   return n;
 }
+// ---------- Achievements ----------
+// A small toast slides in at the top when one unlocks; they queue if several come at once.
+const toastEl = document.createElement('div');
+toastEl.id = 'toast';
+document.body.appendChild(toastEl);
+const toastQueue = [];
+let toastBusy = false;
+function showToast() {
+  if (toastBusy || !toastQueue.length) return;
+  toastBusy = true;
+  const a = toastQueue.shift();
+  toastEl.innerHTML = `<b>\u{1F3C6} ${a.name}</b><span>${a.desc}</span><em>+${a.embers} \u2726</em>`;
+  toastEl.classList.add('show');
+  setTimeout(() => {
+    toastEl.classList.remove('show');
+    setTimeout(() => { toastBusy = false; showToast(); }, 400);
+  }, 3200);
+}
+const FREE_PAINTS = defaultBoatyard().paints.length;
+const awards = new Achievements(save, (a) => {
+  earn(a.embers);
+  sound.play('allBuoys');
+  toastQueue.push(a);
+  showToast();
+});
+let playTimer = 0;
+
 const emberLine = () => (lastClear.embers ? `<p class="earned">+${lastClear.embers} \u2726 Embers</p>` : '');
 
 function formatTime(t) {
@@ -248,7 +277,7 @@ const SCREENS = {
     <p class="modes"><span data-action="daily"><b>D</b> Daily Voyage${dailyLine()}</span>
       <span data-action="endless"><b>N</b> Endless${save.endlessBest ? ` \u00b7 best: voyage ${save.endlessBest}` : ''}</span></p>
     <p class="embers-line" data-action="shop">\u2726 ${yard.embers.toLocaleString()} Embers \u00b7 <b>${boatById(yard.equipped).name}</b> \u00b7 <u>B Boatyard</u></p>
-    <p class="small"><span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
+    <p class="small"><span data-action="awards">A achievements ${awards.count}/${ACHIEVEMENTS.length}</span> \u00b7 <span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
   levelClear: () => `
     <h1>Harbour reached</h1>
     <p class="sub">${game.def.name} is safe. Oil left: ${Math.round(game.oil)}</p>
@@ -305,6 +334,12 @@ const SCREENS = {
     ${emberLine()}
     <p class="go">Press Enter to sail it again</p>
     <p class="small">Esc back to the title</p>`,
+  awards: () => `
+    <h1>Achievements</h1>
+    <p class="sub">${awards.count} of ${ACHIEVEMENTS.length} unlocked \u00b7 each one pays Embers</p>
+    <ul class="awards">${ACHIEVEMENTS.map((a) => `<li class="${awards.has(a.id) ? 'got' : ''}">
+      <b>${awards.has(a.id) ? '\u{1F3C6}' : '\u{1F512}'} ${a.name}</b><span>${a.desc}</span><em>${a.embers} \u2726</em></li>`).join('')}</ul>
+    <p class="small">Esc or Enter to go back</p>`,
   paused: () => `
     <h1>Paused</h1>
     <p class="go">Press P or tap to carry on</p>
@@ -385,6 +420,8 @@ function finishVoyage(won) {
       return 'voyageOver';
     }
     lastClear = { time: game.time, embers: earn(20 + 6 * voyage.depth + Math.round(game.oilPct / 5)) };
+    // "Reach voyage N": clearing this one takes you to voyage depth + 2.
+    awards.cleared({ kind: 'endless', voyage: voyage.depth + 2, time: game.time, oilPct: game.oilPct, hits: game.hitsTaken || 0 });
     return 'voyageClear';
   }
   if (!won) {
@@ -404,6 +441,7 @@ function finishVoyage(won) {
     embers = 60 + 10 * Math.min(9, save.dailyStreak - 1);
   }
   lastClear = { time: game.time, best, embers: embers ? earn(embers) : 0 };
+  awards.cleared({ kind: 'daily', streak: save.dailyStreak, time: game.time, oilPct: game.oilPct, hits: game.hitsTaken || 0 });
   writeSave();
   return 'dailyClear';
 }
@@ -454,7 +492,7 @@ function openShop() {
 
 const shop = createShop({
   yard,
-  onSave: writeSave,
+  onSave: () => { awards.boatyard(yard, FREE_PAINTS); writeSave(); },
   onPreview: (id) => showBoat(id),
   onClose: () => { shop.close(); renderer.showcase = false; showBoat(yard.equipped); toTitle(); },
   onSound: (name) => sound.play(name),
@@ -538,6 +576,11 @@ function onPress(code, e) {
     startVoyage(code === 'KeyD' ? 'daily' : 'endless');
     return;
   }
+  if (code === 'KeyA' && state === 'title') {
+    state = 'awards';
+    showScreen('awards');
+    return;
+  }
   if (code === 'KeyE' && state === 'title') {
     openEditor();
     return;
@@ -570,6 +613,9 @@ function onPress(code, e) {
     case 'levelClear':
       if (go) startLevel(levelIndex + 1);
       else if (code === 'Escape') toTitle();
+      break;
+    case 'awards':
+      if (go || code === 'Escape') toTitle();
       break;
     case 'voyageClear':
       if (go) nextVoyage();
@@ -691,6 +737,8 @@ screenEl.addEventListener('pointerdown', (e) => {
   const rowEl = e.target.closest('[data-row]');
   if (e.target.closest('[data-action="shop"]')) {
     openShop();
+  } else if (e.target.closest('[data-action="awards"]')) {
+    onPress('KeyA');
   } else if (e.target.closest('[data-action="daily"]')) {
     startVoyage('daily');
   } else if (e.target.closest('[data-action="endless"]')) {
@@ -717,6 +765,14 @@ screenEl.addEventListener('pointerdown', (e) => {
 function handleEvent(ev) {
   sound.play(ev.type);
   renderer.effect(ev, game);
+  if (ev.type === 'buoy') awards.record('buoys');
+  if (ev.type === 'oil') awards.record('oils');
+  if (ev.type === 'flare') {
+    awards.record('flares');
+    if (ev.stunned >= 3) awards.unlock('tripleStun');
+  }
+  if (ev.type === 'hit') game.hitsTaken = (game.hitsTaken || 0) + 1;
+  if (ev.type === 'lightning' && ev.stunned) awards.unlock('stormChaser');
   switch (ev.type) {
     case 'oil': say('+ Oil'); break;
     case 'buoy':
@@ -831,6 +887,8 @@ function tick(dt) {
     }
   }
   if (state === 'playing') {
+    playTimer += dt;
+    if (playTimer >= 10) { awards.record('playTime', 10); playTimer -= 10; writeSave(); }
     checkTips();
     const b = game.boat;
     const nearest = Math.min(99, ...game.creatures.map((c) => Math.hypot(c.x - b.x, c.z - b.z)));
@@ -854,6 +912,7 @@ function tick(dt) {
       showScreen('gameOver');
     } else if (game.result === 'won' && customDef) {
       lastClear = { time: game.time, best: false, embers: earn(10) };
+      awards.cleared({ kind: 'custom', time: game.time, oilPct: game.oilPct, hits: game.hitsTaken || 0 });
       state = 'customClear';
       showScreen(state);
     } else if (game.result === 'won') {
@@ -870,6 +929,10 @@ function tick(dt) {
         embers += 150; // full run bonus
       }
       lastClear.embers = earn(embers);
+      awards.cleared({
+        kind: 'story', levelIndex, time: game.time, oilPct: game.oilPct, hits: game.hitsTaken || 0,
+        fullRun: levelIndex === LEVELS.length - 1 && run.valid,
+      });
       state = levelIndex === LEVELS.length - 1 ? 'won' : 'levelClear';
       showScreen(state);
     }

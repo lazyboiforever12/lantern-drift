@@ -165,6 +165,8 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
   and prints win rates, time and oil left. It was used to tune difficulty so each level is a bit harder than the last.
   `VOYAGES=1 node tools/autoplay.mjs` does the same for generated voyages at depths 0 to 11, plus a month of Daily Voyages.
+- `node tools/stamp.mjs` (`npm run stamp`) writes an import map into `index.html` that adds a hash of each file to
+  its URL, so after an update browsers never mix old and new modules. A test fails if it's out of date.
 - Press F9 while running `node serve.mjs` to save a screenshot into `screenshots/`.
 - In the browser console, `lanternDrift.step(2)` runs two seconds of game time and `lanternDrift.game` is the current level.
 

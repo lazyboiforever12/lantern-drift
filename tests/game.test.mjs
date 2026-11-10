@@ -486,3 +486,11 @@ test('a brute shrugs off one flare but is stunned by a second; wisps steal less'
   const lost = before - gw.oil;
   assert.ok(lost > 5 && lost < 12, `wisp stole ${lost}`);
 });
+
+// ---------- Publishing ----------
+import { stampedHtml } from '../tools/stamp.mjs';
+
+test('index.html is stamped with the current file hashes (run: node tools/stamp.mjs)', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.equal(html, stampedHtml());
+});

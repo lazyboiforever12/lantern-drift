@@ -146,3 +146,31 @@ test('on Ember Bay, lit buoys burn out until the lighthouse wakes', () => {
   assert.equal(u.lit, false);
   assert.ok(g.events.some((e) => e.type === 'buoyOut'));
 });
+
+test('share codes round-trip every built-in level', async () => {
+  const { encodeLevel, decodeLevel } = await import('../src/levels.js');
+  for (const def of LEVELS) assert.deepEqual(decodeLevel(encodeLevel(def.map)), def.map, def.name);
+  assert.throws(() => decodeLevel('bm90IGEgbGV2ZWw'));
+});
+
+test('the level checker catches unfair maps', async () => {
+  const { checkLevel } = await import('../src/levels.js');
+  const ok = ['#####', '#B.u#', '#..L#', '#####'];
+  assert.deepEqual(checkLevel({ map: ok }), []);
+  assert.ok(checkLevel({ map: ['#####', '#B.u#', '#...#', '#####'] }).length > 0);   // no lighthouse
+  assert.ok(checkLevel({ map: ['#####', '#B#u#', '###L#', '#####'] }).length > 0);   // buoy walled off
+  assert.ok(checkLevel({ map: ['##.##', '#B.u#', '#..L#', '#####'] }).length > 0);   // gap in the wall
+});
+
+test('storm lightning stuns nearby shadows and can hurt the boat', () => {
+  const i = LEVELS.findIndex((d) => d.name === 'The Storm');
+  const g = new Game(LEVELS[i], i);
+  const c = g.creatures[0];
+  c.x = g.boat.x + 3; c.z = g.boat.z;
+  g.strike = { x: g.boat.x + 1, z: g.boat.z, warn: 0.01 };
+  const oil = g.oil;
+  g.update(DT, IDLE);
+  assert.ok(c.stun > 0);
+  assert.ok(g.oil < oil - 11);
+  assert.ok(g.events.some((e) => e.type === 'lightning' && e.hurt));
+});

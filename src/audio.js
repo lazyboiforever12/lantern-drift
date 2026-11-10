@@ -215,6 +215,17 @@ export class Sound {
         this.noise(0.9, { vol: 0.35, freq: 1800 });
         this.tone(300, 0.6, { type: 'triangle', vol: 0.15, slideTo: 900 });
         break;
+      case 'lightningWarn':
+        this.tone(1400, 0.6, { type: 'sine', vol: 0.04, slideTo: 2200 });
+        break;
+      case 'lightning':
+        this.noise(0.25, { vol: 0.5, freq: 3000, type: 'highpass' });
+        this.noise(2.2, { vol: 0.45, freq: 120, type: 'lowpass' });
+        break;
+      case 'firework':
+        this.noise(0.6, { vol: 0.12, freq: 900 });
+        this.tone(180 + Math.random() * 120, 0.3, { type: 'triangle', vol: 0.05, slideTo: 60 });
+        break;
       case 'buoyOut':
         this.tone(523, 0.5, { vol: 0.15, slideTo: 260 });
         break;

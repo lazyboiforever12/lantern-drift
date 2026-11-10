@@ -12,6 +12,10 @@ const FLARE_RANGE = 11;
 const BUOY_SAFE = 5.5;
 const LIGHTHOUSE_SAFE = 11;
 const CURRENT_SPEED = 2.6;  // how fast flowing water carries the boat (top rowing speed is 7.5)
+const LIGHTNING_WARN = 1.4;   // seconds of warning before a strike lands
+const LIGHTNING_STUN = 6;     // shadows this close to a strike are stunned
+const LIGHTNING_HURT = 2.6;   // the boat this close to a strike loses oil
+const LIGHTNING_COST = 12;
 const LUNGE_TIME = 0.9;      // seconds a lunge lasts
 const LUNGE_SPEED = 9;       // faster than the boat, so you can't just outrun it
 const LUNGE_RANGE = 6;       // how far outside the fear radius a shadow will start a lunge
@@ -36,6 +40,13 @@ export class Game {
     this.hitFlash = 0;
     this.time = 0;
     this.result = null; // 'won' or 'lost'
+    // Storm levels: wind that pushes the boat, and lightning strikes with a warning.
+    this.storm = def.storm || null;
+    this.seed = 12345 + index * 777;      // seeded random, so a level plays the same way in tests
+    this.wind = { x: 0, z: 0 };
+    this.strike = null;                   // { x, z, warn } while a strike is coming
+    this.strikeTimer = this.storm ? 4 : 0;
+    this.lightningFlash = 0;
     this.events = [];
   }
 
@@ -81,6 +92,60 @@ export class Game {
     return best;
   }
 
+  random() {
+    this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+    return this.seed / 4294967296;
+  }
+
+  // Wind slowly turns and gusts. Lightning picks a spot near the boat, warns, then strikes.
+  updateStorm(dt) {
+    const s = this.storm;
+    const t = this.time;
+    const angle = t * 0.13 + Math.sin(t * 0.37) * 1.2;
+    const gust = Math.max(0, Math.sin(t * 0.55)) ** 3;   // a strong push every ~11 s
+    const strength = s.wind * (0.45 + 0.9 * gust);
+    this.wind.x = Math.sin(angle) * strength;
+    this.wind.z = Math.cos(angle) * strength;
+    this.lightningFlash = Math.max(0, this.lightningFlash - dt);
+
+    if (this.strike) {
+      this.strike.warn -= dt;
+      if (this.strike.warn <= 0) this.landStrike();
+      return;
+    }
+    this.strikeTimer -= dt;
+    if (this.strikeTimer <= 0) {
+      const b = this.boat;
+      const a = this.random() * Math.PI * 2;
+      const r = 1 + this.random() * 7;
+      this.strike = { x: b.x + Math.cos(a) * r, z: b.z + Math.sin(a) * r, warn: LIGHTNING_WARN };
+      this.strikeTimer = s.lightningEvery * (0.7 + this.random() * 0.6);
+      this.events.push({ type: 'lightningWarn', x: this.strike.x, z: this.strike.z });
+    }
+  }
+
+  landStrike() {
+    const { x, z } = this.strike;
+    this.strike = null;
+    this.lightningFlash = 0.35;
+    let stunned = 0;
+    for (const c of this.creatures) {
+      if (dist(c.x, c.z, x, z) < LIGHTNING_STUN) {
+        c.stun = 4;
+        c.lunge = 0;
+        stunned++;
+      }
+    }
+    const b = this.boat;
+    const hurt = dist(b.x, b.z, x, z) < LIGHTNING_HURT;
+    if (hurt) {
+      this.oil -= LIGHTNING_COST;
+      this.hitFlash = 0.4;
+    }
+    this.lastStrike = { x, z };
+    this.events.push({ type: 'lightning', x, z, stunned, hurt });
+  }
+
   currentAt(x, z) {
     const { grid, cell } = this.level;
     const row = grid[Math.floor(z / cell)];
@@ -120,6 +185,7 @@ export class Game {
   update(dt, input) {
     if (this.result) return;
     this.time += dt;
+    if (this.storm) this.updateStorm(dt);
     this.flareTime = Math.max(0, this.flareTime - dt);
     this.flareCooldown = Math.max(0, this.flareCooldown - dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt);
@@ -177,6 +243,9 @@ export class Game {
     b.z += b.vz * dt;
 
     // Flowing water carries the boat along with it.
+    // Wind (storm levels) pushes the boat the same way a current does.
+    b.x += this.wind.x * dt;
+    b.z += this.wind.z * dt;
     const cur = this.currentAt(b.x, b.z);
     if (cur) {
       b.x += cur.x * CURRENT_SPEED * dt;
@@ -348,6 +417,10 @@ export class Game {
         const k = this.buoyStrength(u);
         list.push({ pos: [u.x, 1.6, u.z], color: [0.6 * k, 1.7 * k, 1.4 * k], radius: 3 + 4 * k });
       }
+    }
+    if (this.lightningFlash > 0 && this.lastStrike) {
+      const k = this.lightningFlash / 0.35;
+      list.push({ pos: [this.lastStrike.x, 9, this.lastStrike.z], color: [3 * k, 3.2 * k, 4 * k], radius: 30, flare: true });
     }
     const oils = this.oils
       .filter((o) => !o.taken)

@@ -149,3 +149,92 @@ canvas {
 #screen .small { margin-top: 18px; font-size: 13px; opacity: 0.6; cursor: pointer; }
 #hud .fps { left: 16px; top: 62px; font-size: 12px; opacity: 0.7; font-variant-numeric: tabular-nums; }
 #hud .fps.hidden { display: none; }
+
+/* Ending: lighter backdrop so the fireworks show, and rolling credits */
+#screen[data-screen="won"] { background: radial-gradient(#0000 35%, #000b); }
+#screen .credits { height: 180px; overflow: hidden; margin-top: 10px; mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); }
+#screen .credits .roll { animation: roll 22s linear infinite; line-height: 1.5; opacity: 0.9; }
+#screen .credits p { margin: 0 0 22px; }
+#screen .credits b { color: #ffd27a; }
+@keyframes roll { from { transform: translateY(180px); } to { transform: translateY(-100%); } }
+@media (prefers-reduced-motion: reduce) { #screen .credits .roll { animation-duration: 60s; } }
+
+/* Wind arrow on storm levels */
+#hud .wind { left: 50%; top: 36px; font-size: 22px; color: #bcd4ff; transform-origin: 50% 50%; transition: transform 0.2s linear; }
+#hud .wind.hidden { display: none; }
+
+/* Level editor */
+#editor {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #050811ee;
+  overflow: auto;
+}
+#editor.hidden { display: none; }
+#editor .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+#editor .bar b { color: #ffd27a; font-size: 18px; margin-right: 8px; }
+#editor button {
+  font: 600 13px system-ui, sans-serif;
+  color: #f3e6c8;
+  background: #1a2233;
+  border: 1px solid #f3e6c844;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+#editor button:hover { border-color: #ffd27a99; }
+#editor .tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 900px; }
+#editor .tools button { display: flex; align-items: center; gap: 6px; }
+#editor .tools button.sel { background: #ffd27a33; border-color: #ffd27a; }
+#editor .tools small { opacity: 0.5; font-weight: 400; }
+#editor .tools i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+#editor .grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  width: min(960px, 100%, (100vh - 190px) * 2);
+  aspect-ratio: 2 / 1;
+  border: 1px solid #f3e6c833;
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+}
+#editor .grid > div { display: flex; align-items: center; justify-content: center; font-size: 11px; color: #bfe6ff; border: 1px solid #0003; }
+#editor .water, #editor .tools .twater i { background: #17394a; }
+#editor .wall, #editor .tools .twall i { background: #6b5f57; }
+#editor .buoy, #editor .tools .tbuoy i { background: radial-gradient(#9fe8d6 35%, #17394a 40%); }
+#editor .tools .tbuoy i { background: #9fe8d6; }
+#editor .oil, #editor .tools .toil i { background: radial-gradient(#ffb347 35%, #17394a 40%); }
+#editor .tools .toil i { background: #ffb347; }
+#editor .shadow, #editor .tools .tshadow i { background: radial-gradient(#8a4fd1 40%, #17394a 45%); }
+#editor .tools .tshadow i { background: #8a4fd1; }
+#editor .boat, #editor .tools .tboat i { background: #d9a05b; }
+#editor .light, #editor .tools .tlight i { background: #fff1b8; box-shadow: 0 0 8px #ffd27a; }
+#editor .cur, #editor .tools .tcur i { background: #1d5770; }
+#editor .status { margin: 0; color: #9fe8d6; font-weight: 600; }
+#editor .status.bad { color: #ffb38a; }
+#editor .help { margin: 0; font-size: 12px; opacity: 0.6; text-align: center; }
+#screen span[data-action] { cursor: pointer; text-decoration: underline dotted; }
+
+/* Touch screens and narrow (phone) layouts */
+.touch-only { display: none; }
+@media (pointer: coarse) {
+  .touch-only { display: list-item; }
+  .keys-only { display: none; }
+  #hud .msg { bottom: 120px; }
+}
+@media (max-width: 600px) {
+  #hud { font-size: 13px; }
+  #hud .timer { left: 16px; top: 62px; transform: none; }
+  #hud .oil { width: 120px; }
+  #hud .wind { top: 58px; }
+  #hud .fps { top: 82px; }
+  #hud .msg { font-size: 17px; padding: 0 12px; box-sizing: border-box; }
+  #screen h1 { letter-spacing: 2px; }
+  #touch button { width: 64px; height: 64px; }
+}

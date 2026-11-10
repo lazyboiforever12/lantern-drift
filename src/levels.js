@@ -128,6 +128,32 @@ export const LEVELS = [
     ],
   },
   {
+    name: 'The Storm',
+    tip: 'A storm! Wind pushes your boat. Lightning stuns shadows, so lure them under it, but stay clear yourself.',
+    drain: 2.6,
+    creatureSpeed: 3.6,
+    lungeCooldown: 3.0,
+    storm: { wind: 2.0, lightningEvery: 5 },
+    map: [
+      '########################################',
+      '#B....o.........###.............c......#',
+      '#...............###......u.............#',
+      '#...####...u..........................##',
+      '#...####...........#####......####...o##',
+      '#..................#####..c...####.....#',
+      '#....o.....###.................u.......#',
+      '###........###.....o...................#',
+      '#.....c.............####.......####....#',
+      '#...........u.......####...o...####....#',
+      '#..####..............................c.#',
+      '#..####.......o.....######.............#',
+      '#.................c.######.....u.......#',
+      '#..o.........###..............o....L...#',
+      '#............###.......................#',
+      '########################################',
+    ],
+  },
+  {
     name: 'Lighthouse Point',
     tip: 'The last lighthouse. The shadows are thick out here.',
     drain: 2.55,
@@ -156,6 +182,57 @@ export const LEVELS = [
     ],
   },
 ];
+
+// Checks a level is fair: one boat start, one lighthouse, at least one buoy, closed outer walls,
+// and everything reachable by boat. Returns a list of problems (empty means OK).
+export function checkLevel(def) {
+  const problems = [];
+  const count = (ch) => def.map.reduce((n, row) => n + row.split(ch).length - 1, 0);
+  if (count('B') !== 1) problems.push('Place exactly one boat start (B)');
+  if (count('L') !== 1) problems.push('Place exactly one lighthouse (L)');
+  if (count('u') < 1) problems.push('Place at least one buoy');
+  if (problems.length) return problems;
+  const L = parseLevel(def);
+  const { grid, width, height, cell } = L;
+  const solid = (c, r) => r < 0 || c < 0 || r >= height || c >= width || grid[r][c] === '#' || grid[r][c] === 'L';
+  for (let c = 0; c < width; c++) if (!solid(c, 0) || !solid(c, height - 1)) { problems.push('The outer wall has a gap'); break; }
+  for (let r = 0; r < height; r++) if (!solid(0, r) || !solid(width - 1, r)) { problems.push('The outer wall has a gap'); break; }
+  const seen = new Set();
+  const start = [Math.floor(L.start.x / cell), Math.floor(L.start.z / cell)];
+  const queue = [start];
+  seen.add(start.join());
+  for (let i = 0; i < queue.length; i++) {
+    const [c, r] = queue[i];
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const k = `${c + dc},${r + dr}`;
+      if (!seen.has(k) && !solid(c + dc, r + dr)) { seen.add(k); queue.push([c + dc, r + dr]); }
+    }
+  }
+  const at = (p) => `${Math.floor(p.x / cell)},${Math.floor(p.z / cell)}`;
+  if (L.buoys.some((p) => !seen.has(at(p)))) problems.push('A buoy can\'t be reached by boat');
+  if (L.oils.some((p) => !seen.has(at(p)))) problems.push('An oil can can\'t be reached by boat');
+  const [lc, lr] = at(L.lighthouse).split(',').map(Number);
+  if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dc, dr]) => seen.has(`${lc + dc},${lr + dr}`))) {
+    problems.push('The lighthouse needs reachable water next to it');
+  }
+  return problems;
+}
+
+// Share codes: a map squeezed with run-length encoding ("12#" = 12 buildings), then base64.
+export function encodeLevel(map) {
+  const text = map.map((row) => row.replace(/(.)\1*/g, (run) => `${run.length}${run[0]}`)).join('/');
+  return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function decodeLevel(code) {
+  const text = atob(code.trim().replace(/-/g, '+').replace(/_/g, '/'));
+  const map = text.split('/').map((row) => row.replace(/(\d+)(\D)/g, (_, n, ch) => ch.repeat(Number(n))));
+  const ok = /^[#.BouLc<>^v]+$/;
+  if (map.length < 4 || map.length > 40 || map.some((row) => !ok.test(row) || row.length > 60)) {
+    throw new Error('That code is not a Lantern Drift level');
+  }
+  return map;
+}
 
 // Water that flows. The boat drifts with it.
 export const CURRENTS = {

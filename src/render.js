@@ -136,6 +136,25 @@ export class Renderer {
       case 'lunge':
         this.shake(0.08);
         break;
+      case 'lightningWarn':
+        P.burst(ev.x, 0.3, ev.z, { count: 12, speed: 1.2, up: 0.5, life: 1.2, size: 0.12, color: [0.7, 0.8, 1.0], gravity: 0 });
+        break;
+      case 'lightning': {
+        // A jagged bolt from the clouds, built from short streak particles.
+        let x = ev.x + (Math.random() - 0.5) * 3, z = ev.z + (Math.random() - 0.5) * 3, y = 16;
+        const calm = !this.settings.flashes;
+        for (let i = 0; i < 10; i++) {
+          const nx = x + (ev.x - x) * 0.25 + (Math.random() - 0.5) * 1.6;
+          const nz = z + (ev.z - z) * 0.25 + (Math.random() - 0.5) * 1.6;
+          const ny = y - 1.6;
+          P.spawn({ x: (x + nx) / 2, y: (y + ny) / 2, z: (z + nz) / 2, life: 0.25, size: 0.09,
+            color: [0.85, 0.9, 1.0], alpha: calm ? 0.5 : 1, streak: 1, vx: (nx - x) / 2, vy: (ny - y) / 2, vz: (nz - z) / 2, drag: 0 });
+          x = nx; y = ny; z = nz;
+        }
+        P.burst(ev.x, 0.4, ev.z, { count: 40, speed: 6, up: 4, life: 0.8, color: [0.75, 0.85, 1.0] });
+        this.shake(calm ? 0.1 : 0.45);
+        break;
+      }
       case 'buoyOut':
         P.burst(ev.x, 1.4, ev.z, { count: 16, speed: 1.5, up: 2, life: 1.0, color: [0.3, 0.45, 0.5], gravity: 0 });
         break;
@@ -149,6 +168,13 @@ export class Renderer {
         break;
       }
     }
+  }
+
+  // A firework: a bright burst high above the water, in a random festive colour.
+  firework(x, z) {
+    const colors = [[1, 0.75, 0.3], [0.5, 1, 0.9], [1, 0.45, 0.6], [0.7, 0.6, 1], [1, 0.95, 0.6]];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    this.particles.burst(x, 7 + Math.random() * 3, z, { count: 140, speed: 9, up: 3, life: 1.8, size: 0.2, color, gravity: -3 });
   }
 
   // Ambient particles: rain everywhere, embers from the lantern, wisps trailing the shadows.
@@ -234,7 +260,11 @@ export class Renderer {
     const eye = [this.cam.x + sx, 21, this.cam.z + 6 + sz];
     const target = [this.cam.x + sx, 0, this.cam.z - 0.5 + sz];
     const aspect = this.canvas.width / Math.max(1, this.canvas.height);
-    const viewProj = multiply(perspective((48 * Math.PI) / 180, aspect, 0.5, 120), lookAt(eye, target));
+    // 48 degrees tall normally. On narrow (portrait) screens, widen it so you can still see
+    // at least 44 degrees side to side, capped so it doesn't turn into a fish-eye.
+    const minSide = (44 * Math.PI) / 180;
+    const fovy = Math.min((80 * Math.PI) / 180, Math.max((48 * Math.PI) / 180, 2 * Math.atan(Math.tan(minSide / 2) / aspect)));
+    const viewProj = multiply(perspective(fovy, aspect, 0.5, 120), lookAt(eye, target));
 
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(u.uViewProj, false, viewProj);
@@ -324,6 +354,12 @@ export class Renderer {
     const right = norm(cross3(fwd, [0, 1, 0]));
     const up = cross3(right, fwd);
     const extras = [];
+    if (game.strike) {
+      // Lightning warning: a pulsing glow on the water where the strike will land.
+      const k = 1 - game.strike.warn / 1.4;
+      const pulse = 0.5 + 0.5 * Math.sin(time * 30);
+      extras.push([game.strike.x, 0.35, game.strike.z, 0, 0, 0, 1.2 + 1.4 * k, 0.6, 0.75, 1.0, 0.15 + 0.35 * k * pulse]);
+    }
     if (game.lighthouseActive) {
       // The lighthouse beam: a long, faint streak from the lamp to a spot sweeping over the water.
       const s = game.beamSpot;

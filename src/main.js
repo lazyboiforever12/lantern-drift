@@ -1,7 +1,8 @@
 // Entry point: input, game states, HUD and the main loop.
 import { Renderer } from './render.js';
 import { Game } from './game.js';
-import { LEVELS } from './levels.js';
+import { LEVELS, decodeLevel } from './levels.js';
+import { createEditor } from './editor.js';
 import { Sound } from './audio.js';
 
 const canvas = document.getElementById('game');
@@ -18,7 +19,8 @@ try {
 
 const sound = new Sound();
 const keys = new Set();
-let state = 'title'; // title | playing | paused | levelClear | gameOver | won
+let state = 'title'; // title | playing | paused | levelClear | gameOver | won | settings | editor | customClear
+let customDef = null; // set while playing a level from the editor
 let levelIndex = 0;
 let game = new Game(LEVELS[0], 0);
 let time = 0;
@@ -49,6 +51,9 @@ function recordClear(i, seconds) {
   return isBest;
 }
 let lastClear = { time: 0, best: false };
+// A full run: playing every level in order from level 1 (retries count towards the time).
+let run = { valid: false, time: 0 };
+let fireworkTimer = 0;
 
 // ---------- Settings (saved separately from progress) ----------
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
@@ -101,7 +106,7 @@ function tip(id, text, condition) {
   say(text, 4.5);
 }
 function checkTips() {
-  if (levelIndex !== 0 || messageTimer > 1) return;
+  if (levelIndex !== 0 || customDef || messageTimer > 1) return;
   const b = game.boat;
   const speed = Math.hypot(b.vx, b.vz);
   const nearest = Math.min(99, ...game.creatures.map((c) => Math.hypot(c.x - b.x, c.z - b.z)));
@@ -121,6 +126,7 @@ function formatTime(t) {
 hudEl.innerHTML = `
   <span class="level"></span>
   <span class="timer"></span>
+  <span class="wind hidden" title="Wind">↑</span>
   <button class="pause-btn" aria-label="Pause">II</button>
   <span class="oil-label">Oil</span><span class="oil"><i></i></span>
   <span class="buoys"></span>
@@ -131,6 +137,7 @@ hudEl.innerHTML = `
 const hud = {
   level: hudEl.querySelector('.level'),
   timer: hudEl.querySelector('.timer'),
+  wind: hudEl.querySelector('.wind'),
   oil: hudEl.querySelector('.oil > i'),
   buoys: hudEl.querySelector('.buoys'),
   msg: hudEl.querySelector('.msg'),
@@ -140,9 +147,17 @@ const hud = {
 let fpsFrames = 0, fpsTime = 0;
 
 function updateHud(dt) {
-  hudEl.classList.toggle('hidden', state === 'title' || (state === 'settings' && settingsFrom === 'title'));
-  hud.level.textContent = `Level ${levelIndex + 1}: ${game.def.name}`;
+  hudEl.classList.toggle('hidden', state === 'title' || state === 'editor' || (state === 'settings' && settingsFrom === 'title'));
+  hud.level.textContent = customDef ? game.def.name : `Level ${levelIndex + 1}: ${game.def.name}`;
   hud.timer.textContent = formatTime(game.time);
+  // Wind arrow on storm levels: points where the wind blows (screen up = -z), sized by strength.
+  hud.wind.classList.toggle('hidden', !game.storm);
+  if (game.storm) {
+    const w = game.wind;
+    const deg = (Math.atan2(w.x, -w.z) * 180) / Math.PI;
+    const s = 0.8 + Math.hypot(w.x, w.z) * 0.35;
+    hud.wind.style.transform = `translateX(-50%) rotate(${deg}deg) scale(${s})`;
+  }
   const pct = Math.max(0, game.oil);
   hud.oil.style.width = `${pct}%`;
   hud.oil.classList.toggle('low', pct < 25);
@@ -176,14 +191,16 @@ const SCREENS = {
     <p class="sub">The town has flooded and the lights have gone out.<br>
     Keep your lantern burning, light every buoy, and wake the lighthouse.</p>
     <ul class="how">
-      <li><b>WASD / arrow keys</b> steer the boat</li>
-      <li><b>Space</b> fires a flare that scatters shadows (costs oil)</li>
+      <li class="keys-only"><b>WASD / arrow keys</b> steer the boat</li>
+      <li class="keys-only"><b>Space</b> fires a flare that scatters shadows (costs oil)</li>
+      <li class="touch-only"><b>◀ ▶</b> steer, <b>▲</b> rows forward</li>
+      <li class="touch-only"><b>✦</b> fires a flare that scatters shadows (costs oil)</li>
       <li>Collect <b>oil cans</b>; your light shrinks as oil runs low</li>
       <li>Lit <b>buoys</b> are safe zones that shadows won't enter</li>
     </ul>
     <p class="go">Press Enter or tap to start</p>
     ${levelList()}
-    <p class="small" data-action="settings">O settings \u00b7 M mute</p>`,
+    <p class="small"><span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
   levelClear: () => `
     <h1>Harbour reached</h1>
     <p class="sub">${game.def.name} is safe. Oil left: ${Math.round(game.oil)}</p>
@@ -192,11 +209,28 @@ const SCREENS = {
   gameOver: () => `
     <h1>Your lantern went out</h1>
     <p class="sub">The shadows close in around the little boat.</p>
-    <p class="go">Press Enter to try again</p>`,
+    <p class="go">Press Enter to try again</p>
+    ${customDef ? '<p class="small">Esc back to the editor</p>' : ''}`,
+  customClear: () => `
+    <h1>You beat your level!</h1>
+    <p class="sub">Time ${formatTime(lastClear.time)} \u00b7 oil left ${Math.round(game.oil)}</p>
+    <p class="go">Press Enter to go back to the editor</p>
+    <p class="small">Share it from the editor with "Share code"</p>`,
   won: () => `
     <h1>The town is lit</h1>
     <p class="sub">Every lighthouse is shining again. Thanks for playing!</p>
     <p class="sub">Last harbour in ${formatTime(lastClear.time)}${lastClear.best ? ' · <b class="best">New best!</b>' : ''}</p>
+    ${run.valid ? `<p class="sub">Full run: <b>${formatTime(run.time)}</b>${run.best ? ' · <b class="best">New best run!</b>' : save.bestRun ? ` · best ${formatTime(save.bestRun)}` : ''}</p>` : ''}
+    <div class="credits"><div class="roll">
+      <p><b>Lantern Drift</b></p>
+      <p>A game for Hack Club Mipmap</p>
+      <p>Directed by<br><b>lazyboiforever12</b></p>
+      <p>Built with<br><b>Claude Code</b></p>
+      <p>Engine<br><b>none</b>: raw WebGL2,<br>hand-written shaders and maths</p>
+      <p>Music and sound<br>generated live with Web Audio</p>
+      <p>Levels<br>${LEVELS.map((d) => d.name).join('<br>')}</p>
+      <p>Thanks for playing</p>
+    </div></div>
     <p class="go">Press Enter to return to the title</p>`,
   paused: () => `
     <h1>Paused</h1>
@@ -226,6 +260,7 @@ function levelList() {
 }
 
 function showScreen(name) {
+  screenEl.dataset.screen = name || '';
   if (!name) {
     screenEl.classList.add('hidden');
     return;
@@ -234,7 +269,38 @@ function showScreen(name) {
   screenEl.classList.remove('hidden');
 }
 
+// Retry whatever is being played: a built-in level or one from the editor.
+function restart() {
+  if (customDef) startCustom(customDef);
+  else startLevel(levelIndex);
+}
+
+function startCustom(def) {
+  customDef = def;
+  run.valid = false;
+  game = new Game(def, 0);
+  state = 'playing';
+  editor.close();
+  showScreen(null);
+  say(`Your level: light all ${game.buoys.length} buoy${game.buoys.length > 1 ? 's' : ''}`, 3);
+}
+
+function openEditor(rows) {
+  customDef = null;
+  state = 'editor';
+  showScreen(null);
+  editor.open(rows);
+}
+
+const editor = createEditor({
+  onPlay: (def) => startCustom(def),
+  onClose: () => { editor.close(); toTitle(); },
+});
+
 function startLevel(i) {
+  customDef = null;
+  if (state === 'title' || state === 'won') run = { valid: i === 0, time: 0 }; // only a run from level 1 counts
+  else if (state !== 'levelClear') run.time += game.time;                    // retries and restarts cost time
   levelIndex = i;
   game = new Game(LEVELS[i], i);
   state = 'playing';
@@ -243,6 +309,8 @@ function startLevel(i) {
 }
 
 function toTitle() {
+  customDef = null;
+  editor.close();
   state = 'title';
   levelIndex = 0;
   game = new Game(LEVELS[0], 0);
@@ -283,6 +351,14 @@ function onPress(code) {
     applySettings();
     return;
   }
+  if (state === 'editor') {
+    editor.key(code);
+    return;
+  }
+  if (code === 'KeyE' && state === 'title') {
+    openEditor();
+    return;
+  }
   if (code === 'KeyO' && (state === 'title' || state === 'paused')) {
     settingsFrom = state;
     settingsRow = 0;
@@ -313,8 +389,11 @@ function onPress(code) {
       else if (code === 'Escape') toTitle();
       break;
     case 'gameOver':
-      if (go) startLevel(levelIndex);
-      else if (code === 'Escape') toTitle();
+      if (go) restart();
+      else if (code === 'Escape') { if (customDef) openEditor(); else toTitle(); }
+      break;
+    case 'customClear':
+      if (go || code === 'Escape') openEditor();
       break;
     case 'won':
       if (go) toTitle();
@@ -323,12 +402,12 @@ function onPress(code) {
       if (code === 'KeyP' || code === 'Escape') {
         state = 'playing';
         showScreen(null);
-      } else if (code === 'KeyR') startLevel(levelIndex);
-      else if (code === 'KeyQ') toTitle();
+      } else if (code === 'KeyR') restart();
+      else if (code === 'KeyQ') { if (customDef) openEditor(); else toTitle(); }
       break;
     case 'playing':
       if (code === 'Space') game.flare();
-      else if (code === 'KeyR') startLevel(levelIndex);
+      else if (code === 'KeyR') restart();
       else if (code === 'KeyP' || code === 'Escape') {
         state = 'paused';
         showScreen('paused');
@@ -415,7 +494,9 @@ screenEl.addEventListener('pointerdown', (e) => {
   sound.unlock();
   const pick = e.target.closest('[data-level]');
   const rowEl = e.target.closest('[data-row]');
-  if (e.target.closest('[data-action="settings"]')) {
+  if (e.target.closest('[data-action="editor"]')) {
+    openEditor();
+  } else if (e.target.closest('[data-action="settings"]')) {
     onPress('KeyO');
   } else if (state === 'settings') {
     if (rowEl) {
@@ -443,6 +524,10 @@ function handleEvent(ev) {
     case 'allBuoys': say('The lighthouse is awake! Sail to it.', 4); break;
     case 'hit': say('A shadow stole some oil!', 1.5); break;
     case 'noFlare': say('Not enough oil for a flare', 1.5); break;
+    case 'lightning':
+      if (ev.hurt) say('Struck by lightning!', 1.5);
+      else if (ev.stunned) say(`Lightning stunned ${ev.stunned} shadow${ev.stunned > 1 ? 's' : ''}!`, 1.5);
+      break;
     case 'buoyOut': say(`A buoy burned out! (${game.buoysLit} / ${game.buoys.length} lit)`, 2); break;
   }
 }
@@ -477,6 +562,16 @@ function frame(now) {
 function tick(dt) {
   time += dt;
   const pad = readGamepad(); // read every frame so menu buttons work too
+  if (state === 'won') {
+    // Fireworks over the last lighthouse while the credits roll.
+    fireworkTimer -= dt;
+    if (fireworkTimer <= 0) {
+      fireworkTimer = 0.5 + Math.random() * 0.7;
+      const lh = game.lighthouse;
+      renderer.firework(lh.x + (Math.random() - 0.5) * 16, lh.z + (Math.random() - 0.5) * 10);
+      sound.play('firework');
+    }
+  }
   if (state === 'playing') {
     checkTips();
     const b = game.boat;
@@ -494,8 +589,17 @@ function tick(dt) {
     if (game.result === 'lost') {
       state = 'gameOver';
       showScreen('gameOver');
+    } else if (game.result === 'won' && customDef) {
+      lastClear = { time: game.time, best: false };
+      state = 'customClear';
+      showScreen(state);
     } else if (game.result === 'won') {
       lastClear = { time: game.time, best: recordClear(levelIndex, game.time) };
+      run.time += game.time;
+      if (levelIndex === LEVELS.length - 1 && run.valid) {
+        run.best = !save.bestRun || run.time < save.bestRun;
+        if (run.best) { save.bestRun = run.time; writeSave(); }
+      }
       state = levelIndex === LEVELS.length - 1 ? 'won' : 'levelClear';
       showScreen(state);
     }
@@ -538,6 +642,7 @@ window.lanternDrift = {
   get state() { return state; },
   startLevel,
   get renderer() { return renderer; },
+  editor: () => editor,
   save,
   step(seconds) {
     for (let t = 0; t < seconds; t += 1 / 60) tick(1 / 60);
@@ -550,4 +655,12 @@ window.lanternDrift = {
 
 applySettings();
 showScreen('title');
+// A shared level link (#level=CODE) opens straight into the editor with that level.
+if (location.hash.startsWith('#level=')) {
+  try {
+    openEditor(decodeLevel(decodeURIComponent(location.hash.slice(7))));
+  } catch {
+    say('That level link is broken', 3);
+  }
+}
 requestAnimationFrame(frame);

@@ -49,3 +49,8 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 - Automatic quality scaling: if frames stay below about 45 fps, it drops reflections, then bloom, then resolution.
 - Accessibility: a "Flashing effects" switch removes the hit flash and colour split and softens the flare light.
 - 13 automated rule tests (`node --test tests/game.test.mjs`); `package.json` scripts for start / test / check / playtest.
+- The Storm (new level 6): wind turns and gusts, pushing the boat; lightning warns with a glow, then strikes. It stuns shadows nearby but costs oil if you're under it. Uses a seeded random so tests are repeatable.
+- Ending: after Lighthouse Point, fireworks over the harbour, rolling credits, and a full-run timer with a saved best.
+- Level editor: paint 32×16 maps, live fairness checks (the same `checkLevel` the CLI uses), play instantly, and share by link (run-length-encoded, base64 code in the URL hash).
+- Phone: the field of view widens in portrait, plus touch control hints and a HUD that fits small screens.
+- 16 tests now (added share codes, the level checker and lightning).

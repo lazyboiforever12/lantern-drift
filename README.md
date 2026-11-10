@@ -22,6 +22,13 @@ Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL
 
 On the title screen, press a number (or click a level) to replay any level you've unlocked.
 
+## Level editor
+Press **E** on the title screen (or click "E level editor").
+- Paint a 32 × 16 map: water, buildings, buoys, oil, shadows, currents, the boat start and the lighthouse (number keys pick tools, right-click erases).
+- The editor checks your level is fair: closed walls, and every buoy, oil can and the lighthouse reachable by boat.
+- **Play** it straight away, then come back and keep editing.
+- **Share code** copies a link like `.../lantern-drift/#level=...`. Anyone who opens it gets your level in their editor.
+
 ## How to play
 - Your oil drains over time, and your light shrinks as it runs low. Collect oil cans.
 - Sail past every buoy to light it. Lit buoys are safe zones that shadows won't enter.
@@ -37,7 +44,8 @@ On the title screen, press a number (or click a level) to replay any level you'v
 3. The Old Harbour
 4. The Canals (currents)
 5. Ember Bay (buoys burn out: light them all in time)
-6. Lighthouse Point
+6. The Storm (wind gusts push the boat; lightning stuns shadows, but stay out from under it)
+7. Lighthouse Point (the finale), followed by an ending with fireworks, credits and your full-run time
 
 ## Run it
 Needs [Node.js](https://nodejs.org/) (no packages to install):
@@ -67,14 +75,15 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/game.js`: boat physics, currents, collisions, oil, buoys and creature behaviour
 - `src/render.js`: camera, drawing, the boat's foam wake and current streaks
 - `src/levels.js`: the five level maps, drawn as text
-- `src/main.js`: game states, HUD, saving, keyboard / gamepad / touch input
+- `src/main.js`: game states, HUD, saving, keyboard / gamepad / touch input, ending
+- `src/editor.js`: the level editor and share links
 - `src/post.js`: post-processing (MSAA resolve, bloom, colour grading)
 - `src/particles.js`: instanced particle system
 - `src/textures.js`: procedural textures in a texture array, with mipmaps
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 13 rule tests: oil, pickups, flares, hits, buildings, currents, fading buoys, winning and losing.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 16 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes and the level checker.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
   and prints win rates, time and oil left. It was used to tune difficulty so each level is a bit harder than the last.
@@ -101,5 +110,8 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Procedural textures with mipmaps, planar water reflections
 - [x] Published on GitHub Pages
 - [x] Level 6 (Ember Bay, fading buoys), automatic quality scaling, reduced-flashing option, rule tests
+- [x] The Storm (wind and lightning), ending with fireworks and credits, full-run timer
+- [x] Level editor with fairness checks and share links
+- [x] Phone layout: wider portrait view, touch hints, HUD that fits
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

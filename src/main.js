@@ -1,7 +1,7 @@
 // Entry point: input, game states, HUD and the main loop.
 import { Renderer } from './render.js';
 import { Game } from './game.js';
-import { LEVELS, decodeLevel } from './levels.js';
+import { LEVELS, decodeShare } from './levels.js';
 import { createEditor } from './editor.js';
 import { createShop } from './shop.js';
 import { BOATS, boatById, boatStats, boatPaint, defaultBoatyard } from './boats.js';
@@ -423,7 +423,7 @@ function startCustom(def) {
   state = 'playing';
   editor.close();
   showScreen(null);
-  say(`Your level: light all ${game.buoys.length} buoy${game.buoys.length > 1 ? 's' : ''}`, 3);
+  say(def.tip || `${def.name}: light all ${game.buoys.length} buoy${game.buoys.length > 1 ? 's' : ''}`, def.tip ? 4 : 3);
 }
 
 function openEditor(rows) {
@@ -491,9 +491,10 @@ function toTitle() {
 const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
 
 addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, select, textarea')) return; // typing in a form field
   if (GAME_KEYS.includes(e.code)) e.preventDefault();
   sound.unlock();
-  if (!e.repeat) onPress(e.code);
+  if (!e.repeat) onPress(e.code, e);
   keys.add(e.code);
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -506,13 +507,13 @@ addEventListener('blur', () => {
   }
 });
 
-function onPress(code) {
+function onPress(code, e) {
   const go = code === 'Enter' || code === 'Space';
   if (code === 'F9') {
     wantScreenshot = true;
     return;
   }
-  if (code === 'KeyM') {
+  if (code === 'KeyM' && state !== 'editor') {
     say(sound.toggleMute() ? 'Sound off' : 'Sound on', 1.2);
     return;
   }
@@ -522,7 +523,7 @@ function onPress(code) {
     return;
   }
   if (state === 'editor') {
-    editor.key(code);
+    editor.key(code, e);
     return;
   }
   if (state === 'shop') {
@@ -931,7 +932,7 @@ showScreen('title');
 // A shared level link (#level=CODE) opens straight into the editor with that level.
 if (location.hash.startsWith('#level=')) {
   try {
-    openEditor(decodeLevel(decodeURIComponent(location.hash.slice(7))));
+    openEditor(decodeShare(location.hash.slice(7)));
   } catch {
     say('That level link is broken', 3);
   }

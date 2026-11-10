@@ -81,3 +81,6 @@ Mipmap captions are limited to 500 characters; this one is 446.
 - Procedural voyages (`src/voyages.js`): seeded maps checked by `checkLevel`, a Daily Voyage with streaks, and an
   Endless mode. Bot-tested across depths 0 to 11.
 - 23 tests.
+- Level editor v2: Brush / Box / Fill tools, Mirror, undo and redo, level name, difficulty (Calm to Nightmare) and
+  twist saved in share links (old links still load), a Random button using the voyage generator, a step-by-step
+  guide, and live balance tips. 25 tests.

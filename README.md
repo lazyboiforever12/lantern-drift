@@ -43,11 +43,18 @@ Press **B** on the title screen. Clearing levels earns **Embers** ✦. You get m
 - The middle of the screen is a live 3D preview, drawn by the game's own renderer.
 
 ## Level editor
-Press **E** on the title screen (or click "E level editor").
-- Paint a 32 × 16 map: water, buildings, buoys, oil, shadows, currents, the boat start and the lighthouse (number keys pick tools, right-click erases).
-- The editor checks your level is fair: closed walls, and every buoy, oil can and the lighthouse reachable by boat.
-- **Play** it straight away, then come back and keep editing.
-- **Share code** copies a link like `.../lantern-drift/#level=...`. Anyone who opens it gets your level in their editor.
+Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and share it with a link.
+- **Tools:** water, buildings, buoys, oil, shadows, boat start, lighthouse and four directions of current (keys 1-0 and -).
+- **Brush, Box and Fill** modes (P / R / F): paint as you drag, drag out a rectangle, or flood a connected area.
+- **Mirror** (M) paints both halves at once for symmetrical maps; currents flip direction on the far side.
+- **Undo / redo** (Ctrl+Z / Ctrl+Y), up to 100 steps. Right-click paints water.
+- **Level settings:** a name, a difficulty (Calm, Normal, Hard, Nightmare) and an optional twist (storm, or buoys that burn out).
+- **🎲 Random** starts from a generated town (the same generator as the Daily Voyage), ready to remix.
+- **Live checks and tips:** it tells you what's missing (a boat start, an unreachable buoy, a gap in the wall) and gives
+  balance tips, such as when there's too little oil for the amount of water. **?** shows a six-step guide.
+- **Play** it straight away, then come back and keep editing. Your work is saved in the browser.
+- **Share link** copies a link like `.../lantern-drift/#level=...` with the map, name, difficulty and twist in it.
+  Anyone who opens it gets your level in their editor. Older links still work.
 
 ## How to play
 - Your oil drains over time, and your light shrinks as it runs low. Collect oil cans.
@@ -119,7 +126,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 23 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) and the shadow tracer's roof limit.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 25 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, and editor share links.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
   and prints win rates, time and oil left. It was used to tune difficulty so each level is a bit harder than the last.
@@ -154,5 +161,6 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Level editor v2: box and fill tools, mirror, undo/redo, name/difficulty/twist in share links, random maps, guide and tips
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

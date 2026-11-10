@@ -203,7 +203,7 @@ canvas {
 #editor .grid {
   display: grid;
   grid-template-columns: repeat(var(--cols), 1fr);
-  width: min(960px, 100%, (100vh - 190px) * 2);
+  width: min(960px, 100%, (100vh - 280px) * 2);
   aspect-ratio: 2 / 1;
   border: 1px solid #f3e6c833;
   touch-action: none;
@@ -222,6 +222,21 @@ canvas {
 #editor .boat, #editor .tools .tboat i { background: #d9a05b; }
 #editor .light, #editor .tools .tlight i { background: #fff1b8; box-shadow: 0 0 8px #ffd27a; }
 #editor .cur, #editor .tools .tcur i { background: #1d5770; }
+#editor .settings-row, #editor .modes-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; font-size: 13px; }
+#editor .settings-row input, #editor .settings-row select {
+  font: 13px system-ui, sans-serif; color: #f3e6c8; background: #1a2233; border: 1px solid #ffd27a44;
+  border-radius: 6px; padding: 4px 8px; margin-left: 4px;
+}
+#editor .settings-row input { width: 170px; }
+#editor .modes-row button.sel { background: #ffd27a33; border-color: #ffd27a; }
+#editor button:disabled { opacity: 0.35; cursor: default; }
+#editor .grid > div.pre { outline: 2px solid #ffd27acc; outline-offset: -2px; }
+#editor .grid > div.axis { box-shadow: inset 2px 0 0 #ffd27a88; }
+#editor .guide { margin: 0; padding: 8px 16px 8px 36px; max-width: 720px; font-size: 13px; line-height: 1.5;
+  background: #0d1420e6; border: 1px solid #ffd27a44; border-radius: 8px; }
+#editor .guide.hidden { display: none; }
+#editor .stats { margin: 0; font-size: 12px; opacity: 0.85; text-align: center; }
+#editor .stats em { color: #ffd27a; font-style: normal; }
 #editor .status { margin: 0; color: #9fe8d6; font-weight: 600; }
 #editor .status.bad { color: #ffb38a; }
 #editor .help { margin: 0; font-size: 12px; opacity: 0.6; text-align: center; }

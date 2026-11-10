@@ -44,12 +44,13 @@ export function voyageDifficulty(depth) {
 }
 
 // Builds one voyage. twist picks an extra rule: 'none', 'fading' (buoys burn out), 'storm' or 'currents'.
-export function generateVoyage(seed, depth, twist = autoTwist(depth)) {
+// size: optional { width, height } to force a map size (the level editor's Random button uses 32 x 16).
+export function generateVoyage(seed, depth, twist = autoTwist(depth), size = null) {
   // Each failed attempt tries a new seed with fewer buildings; the last attempt is open water,
   // which always passes, so this never gives up.
   for (let attempt = 0; attempt < 40; attempt++) {
     const density = attempt < 30 ? 1 : 0.4;
-    const def = buildVoyage((seed + attempt * 7919) >>> 0, depth, twist, attempt === 39 ? 0 : density);
+    const def = buildVoyage((seed + attempt * 7919) >>> 0, depth, twist, attempt === 39 ? 0 : density, size);
     if (checkLevel(def).length === 0) return def;
   }
   throw new Error('Could not build a voyage'); // unreachable in practice: open water always passes
@@ -62,11 +63,11 @@ function autoTwist(depth) {
   return 'none';
 }
 
-function buildVoyage(seed, depth, twist, density) {
+function buildVoyage(seed, depth, twist, density, size) {
   const rand = seededRandom(seed);
   const int = (a, b) => a + Math.floor(rand() * (b - a + 1));
-  const W = 30 + Math.min(14, depth * 2) + int(0, 4);
-  const H = 14 + Math.min(6, depth) + int(0, 2);
+  const W = size ? size.width : 30 + Math.min(14, depth * 2) + int(0, 4);
+  const H = size ? size.height : 14 + Math.min(6, depth) + int(0, 2);
   const g = [];
   for (let r = 0; r < H; r++) {
     g.push([]);

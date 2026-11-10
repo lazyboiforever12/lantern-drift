@@ -234,6 +234,47 @@ export function decodeLevel(code) {
   return map;
 }
 
+// Level settings that travel with a share code: how hard it is, and an optional twist.
+export const DIFFICULTIES = [
+  { name: 'Calm', drain: 2.0, creatureSpeed: 2.4, lungeCooldown: 3.8 },
+  { name: 'Normal', drain: 2.3, creatureSpeed: 3.2, lungeCooldown: 3.0 },
+  { name: 'Hard', drain: 2.5, creatureSpeed: 3.6, lungeCooldown: 2.8 },
+  { name: 'Nightmare', drain: 2.7, creatureSpeed: 4.0, lungeCooldown: 2.5 },
+];
+export const TWISTS = [
+  { name: 'None' },
+  { name: 'Buoys burn out', buoyTime: 40, tip: 'Buoys burn out! Light them all before the first one fades.' },
+  { name: 'Storm', storm: { wind: 1.8, lightningEvery: 5 }, tip: 'A storm! Lure shadows under the lightning, but stay clear yourself.' },
+];
+
+// Full share code: the map code, then "~" + difficulty and twist digits, then "~" + the level's name.
+// Old codes (map only) still load, as Normal with no twist.
+export function encodeShare({ map, difficulty = 1, twist = 0, name = '' }) {
+  let code = `${encodeLevel(map)}~${difficulty}${twist}`;
+  if (name) code += `~${encodeURIComponent(name.slice(0, 40))}`;
+  return code;
+}
+
+export function decodeShare(text) {
+  const [mapCode, opts = '10', name = ''] = text.trim().split('~');
+  const difficulty = Math.min(DIFFICULTIES.length - 1, Number(opts[0]) || 0);
+  const twist = Math.min(TWISTS.length - 1, Number(opts[1]) || 0);
+  let title = '';
+  try { title = decodeURIComponent(name).slice(0, 40); } catch { /* bad name: leave it blank */ }
+  return { map: decodeLevel(mapCode), difficulty, twist, name: title };
+}
+
+// Builds a playable level definition from editor settings.
+export function customLevel({ map, difficulty = 1, twist = 0, name = '' }) {
+  const d = DIFFICULTIES[difficulty] || DIFFICULTIES[1];
+  const t = TWISTS[twist] || TWISTS[0];
+  const def = { name: name || 'Your level', drain: d.drain, creatureSpeed: d.creatureSpeed, lungeCooldown: d.lungeCooldown, map };
+  if (t.buoyTime) def.buoyTime = t.buoyTime;
+  if (t.storm) def.storm = t.storm;
+  if (t.tip) def.tip = t.tip;
+  return def;
+}
+
 // Water that flows. The boat drifts with it.
 export const CURRENTS = {
   '>': { x: 1, z: 0 },

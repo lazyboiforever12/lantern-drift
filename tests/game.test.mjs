@@ -285,3 +285,30 @@ test('no roof is taller than the shadow tracer assumes', () => {
   const roofMax = Number(src.match(/#define ROOF_MAX ([\d.]+)/)[1]);
   for (let c = 0; c < 80; c++) for (let r = 0; r < 60; r++) assert.ok(buildingHeight(c, r) < roofMax);
 });
+
+// ---------- Level editor v2 ----------
+import { encodeShare, decodeShare, customLevel, encodeLevel as encodeMap } from '../src/levels.js';
+
+test('share links carry the level name, difficulty and twist, and old codes still load', () => {
+  const map = LEVELS[0].map;
+  const back = decodeShare(encodeShare({ map, difficulty: 3, twist: 2, name: 'Harbour ✦ #1' }));
+  assert.deepEqual(back.map, map);
+  assert.equal(back.difficulty, 3);
+  assert.equal(back.twist, 2);
+  assert.equal(back.name, 'Harbour ✦ #1');
+  const old = decodeShare(encodeMap(map));
+  assert.equal(old.difficulty, 1);
+  assert.equal(old.twist, 0);
+  const def = customLevel(back);
+  assert.ok(def.storm && def.creatureSpeed > customLevel(old).creatureSpeed);
+  assert.equal(customLevel({ map, twist: 1 }).buoyTime, 40);
+});
+
+test('the editor\'s Random button builds fair 32 x 16 maps', () => {
+  for (let s = 0; s < 30; s++) {
+    const def = generateVoyage(s * 101, 1 + (s % 4), 'none', { width: 32, height: 16 });
+    assert.equal(def.map.length, 16);
+    assert.ok(def.map.every((row) => row.length === 32));
+    assert.deepEqual(checkLevel(def), []);
+  }
+});

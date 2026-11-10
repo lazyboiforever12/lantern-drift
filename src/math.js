@@ -64,3 +64,13 @@ export function model(tx, ty, tz, ry = 0, sx = 1, sy = sx, sz = sx) {
 }
 
 export const IDENTITY = model(0, 0, 0);
+
+// Rotation about one axis, placed at a pivot point. Used for a boat's moving parts.
+export function pivotRotate(px, py, pz, axis, a) {
+  const c = Math.cos(a), s = Math.sin(a);
+  let m;
+  if (axis === 'x') m = [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0];
+  else if (axis === 'z') m = [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0];
+  else m = [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0];
+  return new Float32Array([...m, px, py, pz, 1]);
+}

@@ -24,7 +24,9 @@ On the title screen, press a number (or click a level) to replay any level you'v
 
 ## Boatyard
 Press **B** on the title screen. Clearing levels earns **Embers** ✦. You get more for later levels, oil left over, first clears, new best times and full runs. Even a lost run pays a little for every buoy you lit.
-- **11 boats**, each with its own look and handling: Little Skiff, Rubber Dinghy, Canal Punt, Fishing Boat, Speedboat, Gondola, Tugboat, Paddle Steamer, Lantern Junk, Ember Racer and Moonlit Clipper.
+- **22 boats**, each with its own look, handling and a short description: Little Skiff, Bed Mattress, Comfy Couch, Rubber Dinghy, Canal Punt, Fishing Boat, Speedboat, Gondola, Tugboat, Paddle Steamer, Luxury Yacht, Lantern Junk, Submarine, Ember Racer, Navy Destroyer, Navy Warship, Moonlit Clipper, Old Battleship, Cruise Ship, HMHS Britannic, Aircraft Carrier and RMS Titanic.
+- **Special traits** on the big ships, for example: the battleship's armour halves stolen oil, the submarine's silent running hides you from distant shadows, the carrier's spotter plane lights buoys from twice as far, the cruise ship's buffet makes oil cans give 50% more, the couch saves oil while you rest, and the Titanic... hates bumping into things.
+- **Moving parts:** spinning radars and propellers (faster as you speed up), sweeping gun turrets, paddle wheels, a periscope, a patrol plane circling the carrier, and steam puffing from funnels. Each part is its own mesh, rotated about a pivot every frame (`pivotRotate` in `src/math.js`).
 - **Stats** change how the boat plays: top speed, acceleration, handling (turning and grip), oil tank, fuel economy and lantern radius. The stat bars show ▲/▼ compared with your equipped boat.
 - **Upgrades** per boat, 3 levels each: Engine, Oil tank, Efficient burner and Lantern lens.
 - **Paint** for hull and trim: 17 colours, including glow paints that shine in the dark. Buy a colour once and use it on every boat.
@@ -85,7 +87,8 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/levels.js`: the five level maps, drawn as text
 - `src/main.js`: game states, HUD, saving, keyboard / gamepad / touch input, ending
 - `src/editor.js`: the level editor and share links
-- `src/boats.js`: the 11 boat designs, their stats, upgrades and paints
+- `src/boats.js`: boat designs, stats, traits, upgrades and paints
+- `src/ships.js`: the big ships (liners, warships, carrier, submarine) and the furniture, with moving parts
 - `src/shop.js`: the Boatyard screen
 - `src/post.js`: post-processing (MSAA resolve, bloom, colour grading)
 - `src/particles.js`: instanced particle system
@@ -124,6 +127,6 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Level editor with fairness checks and share links
 - [x] Phone layout: wider portrait view, touch hints, HUD that fits
 - [x] Shadows collide with buildings and path around them (flow field)
-- [x] Boatyard: Embers currency, 11 boats, upgrades, paints, live 3D preview
+- [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

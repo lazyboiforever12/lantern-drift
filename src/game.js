@@ -170,21 +170,23 @@ export class Game {
 
   flare() {
     if (this.result || this.flareCooldown > 0) return;
-    if (this.oil < FLARE_COST + 1) {
+    const st = this.stats;
+    const cost = FLARE_COST * st.flareCost;
+    if (this.oil < cost + 1) {
       this.events.push({ type: 'noFlare' });
       return;
     }
-    this.oil -= FLARE_COST;
+    this.oil -= cost;
     this.flareTime = FLARE_TIME;
-    this.flareCooldown = 1.5;
+    this.flareCooldown = 1.5 * st.flareCooldown;
     const b = this.boat;
     for (const c of this.creatures) {
       const d = dist(c.x, c.z, b.x, b.z);
-      if (d < FLARE_RANGE) {
+      if (d < FLARE_RANGE * st.flareRange) {
         const ux = (c.x - b.x) / (d || 1), uz = (c.z - b.z) / (d || 1);
         c.vx = ux * 10;
         c.vz = uz * 10;
-        c.stun = 2.5;
+        c.stun = 2.5 * st.stunMult;
         c.lunge = 0;
       }
     }
@@ -215,7 +217,8 @@ export class Game {
       }
     }
 
-    this.oil -= this.def.drain * this.stats.drain * dt;
+    const idle = input.forward || input.back ? 1 : this.stats.idleDrain; // the couch saves oil at rest
+    this.oil -= this.def.drain * this.stats.drain * idle * dt;
     if (this.oil <= 0) {
       this.oil = 0;
       this.result = 'lost';
@@ -266,7 +269,10 @@ export class Game {
 
   collideBoat() {
     const vn = this.collideCircle(this.boat, this.stats.radius, 1.3);
-    if (vn < -3) this.events.push({ type: 'bump' });
+    if (vn < -3) {
+      this.events.push({ type: 'bump' });
+      if (this.stats.bumpCost) this.oil -= this.stats.bumpCost; // the Titanic's iceberg allergy
+    }
   }
 
   // A circle (boat or shadow) against the square cells of buildings. Pushes it out and
@@ -369,12 +375,12 @@ export class Game {
     for (const o of this.oils) {
       if (!o.taken && dist(b.x, b.z, o.x, o.z) < 1.5) {
         o.taken = true;
-        this.oil = Math.min(this.tank, this.oil + OIL_PICKUP);
+        this.oil = Math.min(this.tank, this.oil + OIL_PICKUP * this.stats.pickup);
         this.events.push({ type: 'oil', x: o.x, z: o.z });
       }
     }
     for (const u of this.buoys) {
-      if (!u.lit && dist(b.x, b.z, u.x, u.z) < 2.4) {
+      if (!u.lit && dist(b.x, b.z, u.x, u.z) < 2.4 * this.stats.buoyRange) {
         u.lit = true;
         u.timer = this.def.buoyTime || 0; // on some levels lit buoys burn out
         this.events.push({ type: 'buoy', x: u.x, z: u.z });
@@ -405,7 +411,7 @@ export class Game {
       const ux = dx / d, uz = dz / d;
       let ax = 0, az = 0;
       // Can this shadow see the boat? If not, it follows the flow field around buildings.
-      const sees = this.clearLine(c.x, c.z, b.x, b.z);
+      const sees = this.clearLine(c.x, c.z, b.x, b.z) && d < this.stats.stealth;
       const way = sees ? { x: ux, z: uz } : this.flowDirection(c.x, c.z) || { x: ux, z: uz };
 
       if (c.stun > 0) {
@@ -415,8 +421,10 @@ export class Game {
       } else if (d < fear && sees) {
         ax -= ux * 8; az -= uz * 8;
       } else {
-        ax += way.x * this.def.creatureSpeed * 2;
-        az += way.z * this.def.creatureSpeed * 2;
+        // Beyond stealth range a shadow hasn't noticed you: it only drifts about.
+        const hunt = d < this.stats.stealth ? 2 : 0.4;
+        ax += way.x * this.def.creatureSpeed * hunt;
+        az += way.z * this.def.creatureSpeed * hunt;
         if (c.cool <= 0 && sees && d < fear + LUNGE_RANGE) {
           c.lunge = LUNGE_TIME;
           c.cool = this.def.lungeCooldown + ((c.seed * 7.3 + this.time) % 2);
@@ -458,8 +466,8 @@ export class Game {
       this.collideCircle(c, SHADOW_RADIUS, 1.0);
 
       if (d < 1.1 && c.stun <= 0) {
-        this.oil -= HIT_COST;
-        c.stun = 2.5;
+        this.oil -= HIT_COST * this.stats.hitMult;
+        c.stun = 2.5 * this.stats.stunMult;
         c.lunge = 0;
         c.vx = -ux * 9;
         c.vz = -uz * 9;

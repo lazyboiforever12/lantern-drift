@@ -4,6 +4,9 @@ import {
   BOATS, UPGRADES, PAINTS, MAX_UPGRADE, upgradeCost, boatStats, statBars, boatById, paintById,
 } from './boats.js';
 
+// The Boatyard lists boats from cheapest to most expensive.
+const LIST = [...BOATS].sort((a, b) => a.price - b.price);
+
 export function createShop({ yard, onSave, onPreview, onClose, onSound }) {
   const el = document.createElement('div');
   el.id = 'shop';
@@ -30,7 +33,7 @@ export function createShop({ yard, onSave, onPreview, onClose, onSound }) {
         <button data-act="close" title="Esc">Back</button>
       </header>
       <aside class="list">
-        ${BOATS.map((b) => {
+        ${LIST.map((b) => {
           const o = owned(b.id);
           const tag = yard.equipped === b.id ? 'Equipped' : o ? 'Owned' : fmt(b.price);
           return `<button data-boat="${b.id}" class="${b.id === selected ? 'sel' : ''} ${o ? 'own' : ''} ${!o && b.price > yard.embers ? 'poor' : ''}">
@@ -40,6 +43,7 @@ export function createShop({ yard, onSave, onPreview, onClose, onSound }) {
       <section class="detail">
         <h2>${boat.name}</h2>
         <p class="blurb">${boat.blurb}</p>
+        ${boat.trait ? `<p class="trait">\u2605 ${boat.trait}</p>` : ''}
         <ul class="bars">
           ${bars.map((s, i) => {
             const diff = s.value - equippedStats[i].value;
@@ -103,7 +107,9 @@ export function createShop({ yard, onSave, onPreview, onClose, onSound }) {
       return;
     } else if (t.dataset.act === 'buy' && !mine) {
       if (spend(boat.price, boat.name)) {
-        yard.boats[selected] = { engine: 0, tank: 0, burner: 0, lens: 0, hull: 'oak', trim: 'tar' };
+        const paint = boat.paint || { hull: 'oak', trim: 'tar' };
+        yard.boats[selected] = { engine: 0, tank: 0, burner: 0, lens: 0, ...paint };
+        for (const id of Object.values(paint)) if (!yard.paints.includes(id)) yard.paints.push(id); // its paint comes free
         yard.equipped = selected;
         message = `${boat.name} is yours!`;
       }
@@ -142,11 +148,11 @@ export function createShop({ yard, onSave, onPreview, onClose, onSound }) {
     close() { el.classList.add('hidden'); },
     // Up/down picks a boat, Enter buys or equips, Esc leaves.
     key(code) {
-      const i = BOATS.findIndex((b) => b.id === selected);
+      const i = LIST.findIndex((b) => b.id === selected);
       if (code === 'Escape') { onClose(); return; }
       if (code === 'ArrowUp' || code === 'KeyW' || code === 'ArrowDown' || code === 'KeyS') {
         const step = code === 'ArrowUp' || code === 'KeyW' ? -1 : 1;
-        selected = BOATS[(i + step + BOATS.length) % BOATS.length].id;
+        selected = LIST[(i + step + LIST.length) % LIST.length].id;
         onSound('oil');
         onPreview(selected);
         render();

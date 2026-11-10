@@ -204,3 +204,38 @@ test('boat stats change how the game plays', async () => {
   run(racer, 1.5, { ...IDLE, forward: true });
   assert.ok(Math.hypot(racer.boat.vx, racer.boat.vz) > 8, 'the racer is faster than the skiff can go');
 });
+
+test('special ship traits work', async () => {
+  const { boatStats } = await import('../src/boats.js');
+  // Battleship armour: a hit steals half as much.
+  const bs = new Game(LEVELS[0], 0, boatStats('battleship'));
+  bs.creatures.length = 1;
+  const c = bs.creatures[0];
+  c.x = bs.boat.x + 0.5; c.z = bs.boat.z; c.stun = 0;
+  bs.update(DT, IDLE);
+  assert.ok(bs.tank - bs.oil < 10, `battleship lost ${bs.tank - bs.oil}`);
+  // Couch: less oil used while not rowing.
+  const couch = new Game(LEVELS[0], 0, boatStats('couch'));
+  couch.creatures.length = 0;
+  run(couch, 2);
+  assert.ok(couch.tank - couch.oil < LEVELS[0].drain * 2 * 0.65);
+  // Carrier: lights a buoy from 4 units away.
+  const cv = new Game(LEVELS[0], 0, boatStats('carrier'));
+  cv.creatures.length = 0;
+  const u = cv.buoys[0];
+  cv.boat.x = u.x + 4; cv.boat.z = u.z;
+  cv.update(DT, IDLE);
+  assert.equal(u.lit, true);
+  // Cruise ship: oil cans give 50% more.
+  const cr = new Game(LEVELS[0], 0, boatStats('cruise'));
+  cr.creatures.length = 0;
+  cr.oil = 50;
+  const o = cr.oils[0];
+  cr.boat.x = o.x; cr.boat.z = o.z;
+  cr.update(DT, IDLE);
+  assert.ok(cr.oil > 50 + 35 * 1.5 - 1);
+  // Warship: cheaper flares.
+  const ws = new Game(LEVELS[0], 0, boatStats('cruiser'));
+  ws.flare();
+  assert.ok(Math.abs(ws.tank - ws.oil - 12 * 0.6) < 0.01);
+});

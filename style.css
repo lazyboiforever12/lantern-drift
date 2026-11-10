@@ -301,3 +301,5 @@ canvas {
   #shop .list button { flex: 0 0 auto; }
   #shop .detail { grid-column: 1; grid-row: 4; }
 }
+
+#shop .trait { margin: 0 0 10px; color: #9fe8d6; font-weight: 600; font-size: 13px; }

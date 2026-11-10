@@ -1,6 +1,8 @@
 // The Boatyard's catalogue: boat designs (built from boxes), their stats, upgrades and paints.
 // Stats feed straight into the boat physics in game.js; designs are turned into meshes in meshes.js.
 
+import { SHIPS } from './ships.js';
+
 // Default stats = the Little Skiff with no upgrades (what the levels were tuned for).
 export const BASE_STATS = {
   thrust: 10,      // how hard it accelerates
@@ -13,6 +15,17 @@ export const BASE_STATS = {
   radius: 0.75,    // size for collisions
   lanternY: 1.85,  // where the lantern hangs (for the light)
   lanternZ: 0.3,
+  // Special traits (1 or 0 = no effect). Each new ship changes one or two of these.
+  hitMult: 1,        // oil stolen by a shadow
+  flareCost: 1,      // oil a flare costs
+  flareRange: 1,     // how far a flare reaches
+  flareCooldown: 1,  // time between flares
+  bumpCost: 0,       // oil lost when you hit a wall hard
+  buoyRange: 1,      // how close you must pass to light a buoy
+  pickup: 1,         // oil from an oil can
+  stunMult: 1,       // how long stunned shadows stay stunned
+  idleDrain: 1,      // oil use while not rowing
+  stealth: 999,      // shadows only notice you within this distance
 };
 
 // Each boat: price in Embers, a line of flavour, stat changes from the base, and a design
@@ -52,6 +65,7 @@ export const BOATS = [
     id: 'fishing', name: 'Fishing Boat', price: 500,
     blurb: 'A sturdy little cabin boat with room for spare oil.',
     stats: { tank: 130, drain: 0.95, maxSpeed: 7.1, lantern: 1.1, lanternY: 2.15, lanternZ: -0.2 },
+    parts: [{ pivot: [0, 1.22, -0.55], axis: 'y', speed: 3, design(b) { b.box(0, 0.05, 0, 0.42, 0.05, 0.07, [0.5, 0.5, 0.55]); } }],
     design(b, p) {
       b.box(0, 0.18, 0, 1.15, 0.5, 2.2, p.hull).box(0, 0.15, 1.3, 0.75, 0.42, 0.5, p.hull)
         .box(0, 0.46, 0, 1.2, 0.08, 2.25, p.trim).box(0, 0.8, -0.35, 0.85, 0.65, 0.9, p.trim)
@@ -63,6 +77,7 @@ export const BOATS = [
     id: 'speedboat', name: 'Speedboat', price: 800,
     blurb: 'Fast and thirsty. Slides in the corners.',
     stats: { thrust: 13, maxSpeed: 9.6, grip: 3.8, tank: 90, drain: 1.25, lanternY: 1.2, lanternZ: -0.6 },
+    parts: [{ pivot: [0, 0.02, -1.32], axis: 'z', speed: 2, bySpeed: 4, design(b) { b.box(0, 0, 0, 0.45, 0.06, 0.03, [0.75, 0.75, 0.8]).box(0, 0, 0, 0.06, 0.45, 0.03, [0.75, 0.75, 0.8]); } }],
     design(b, p) {
       b.box(0, 0.16, -0.1, 1.05, 0.38, 2.0, p.hull).box(0, 0.16, 1.1, 0.7, 0.32, 0.6, p.hull)
         .box(0, 0.16, 1.5, 0.35, 0.26, 0.35, p.hull).box(0, 0.38, 0, 1.1, 0.06, 2.1, p.trim)
@@ -85,6 +100,7 @@ export const BOATS = [
     id: 'tug', name: 'Tugboat', price: 1100,
     blurb: 'Slow but mighty. Shrugs off currents and wind, and sips oil.',
     stats: { thrust: 13.5, maxSpeed: 6.9, tank: 150, drain: 0.85, turn: 1.6, radius: 0.85, lanternY: 2.4, lanternZ: -0.3 },
+    smoke: [[0, 2.25, -0.65]],
     design(b, p) {
       b.box(0, 0.22, 0, 1.4, 0.55, 2.2, p.hull).box(0, 0.2, 1.25, 1.0, 0.5, 0.5, p.hull)
         .box(0, 0.52, 0, 1.46, 0.1, 2.3, p.trim).box(-0.75, 0.3, 0, 0.12, 0.3, 2.0, p.dark)
@@ -97,6 +113,17 @@ export const BOATS = [
     id: 'steamer', name: 'Paddle Steamer', price: 1500,
     blurb: 'A grand old riverboat. Huge tank and a bright lamp, but she turns like a barge.',
     stats: { tank: 165, lantern: 1.25, maxSpeed: 7.4, turn: 1.35, radius: 0.9, drain: 0.95, lanternY: 2.6, lanternZ: 0.6 },
+    // Paddle wheels on both sides turn with your speed, and the funnel puffs steam.
+    parts: [-0.8, 0.8].map((x) => ({
+      pivot: [x, 0.45, -0.2], axis: 'x', speed: 1, bySpeed: 1.2,
+      design(b) {
+        for (let i = 0; i < 4; i++) {
+          const a = (i * Math.PI) / 4;
+          b.box(0, Math.sin(a) * 0.01, 0, 0.2, 0.08 + Math.abs(Math.cos(a)) * 0.74, 0.08 + Math.abs(Math.sin(a)) * 0.74, [0.55, 0.12, 0.1]);
+        }
+      },
+    })),
+    smoke: [[0, 2.4, -0.4]],
     design(b, p) {
       b.box(0, 0.2, 0, 1.3, 0.5, 2.6, p.hull).box(0, 0.5, 0, 1.36, 0.08, 2.66, p.trim)
         .box(-0.8, 0.45, -0.2, 0.25, 0.9, 0.9, p.dark).box(0.8, 0.45, -0.2, 0.25, 0.9, 0.9, p.dark)
@@ -121,6 +148,7 @@ export const BOATS = [
     id: 'racer', name: 'Ember Racer', price: 2600,
     blurb: 'A twin-hulled racer with glowing fins. Very fast and very sharp.',
     stats: { thrust: 14.5, maxSpeed: 10.2, turn: 2.2, grip: 5.5, tank: 110, drain: 1.1, lanternY: 1.4, lanternZ: -0.2 },
+    parts: [-0.45, 0.45].map((x) => ({ pivot: [x, 0.02, -1.3], axis: 'z', speed: 3, bySpeed: 4, design(b) { b.box(0, 0, 0, 0.32, 0.05, 0.03, [1, 0.6, 0.2], 0.4).box(0, 0, 0, 0.05, 0.32, 0.03, [1, 0.6, 0.2], 0.4); } })),
     design(b, p) {
       b.box(-0.45, 0.15, 0, 0.35, 0.32, 2.4, p.hull).box(0.45, 0.15, 0, 0.35, 0.32, 2.4, p.hull)
         .box(-0.45, 0.15, 1.35, 0.22, 0.24, 0.4, p.hull).box(0.45, 0.15, 1.35, 0.22, 0.24, 0.4, p.hull)
@@ -142,6 +170,7 @@ export const BOATS = [
         .box(0, 1.9, -0.4, 1.0, 1.1, 0.04, p.trim).box(0, 3.35, 0.5, 0.25, 0.15, 0.04, p.glow, 0.7);
     },
   },
+  ...SHIPS,
 ];
 
 // Upgrades: three levels each, bought per boat. Prices scale with the boat's price.

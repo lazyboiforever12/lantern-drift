@@ -315,8 +315,9 @@ function openEditor(rows) {
 
 // Boat in the renderer: the equipped one normally, or whatever is selected in the Boatyard.
 function showBoat(id) {
-  const owned = yard.boats[id] || { hull: 'oak', trim: 'tar' };
-  renderer.setBoat(boatById(id).design, boatPaint(owned), boatStats(id, owned));
+  const boat = boatById(id);
+  const owned = yard.boats[id] || boat.paint || { hull: 'oak', trim: 'tar' };
+  renderer.setBoat(boat, boatPaint(owned), boatStats(id, owned));
 }
 
 // The Boatyard shows the boat on calm open water in level 1, without shadows.

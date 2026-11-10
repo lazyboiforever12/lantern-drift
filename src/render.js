@@ -5,9 +5,9 @@ import { CURRENTS } from './levels.js';
 import { PostProcess } from './post.js';
 import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
-import { perspective, lookAt, multiply, model, IDENTITY } from './math.js';
+import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate } from './math.js';
 import {
-  boatMesh, designBoatMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
+  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, waterMesh, foamMesh, streakMesh,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -172,10 +172,23 @@ export class Renderer {
   }
 
   // Swap in the boat from the Boatyard (design, paint and lantern position).
-  setBoat(design, paint, stats) {
+  setBoat(boat, paint, stats) {
     const gl = this.gl;
     if (this.meshes.boat) deleteMesh(gl, this.meshes.boat);
-    this.meshes.boat = designBoatMesh(gl, design, paint, stats);
+    for (const p of this.boatParts || []) deleteMesh(gl, p.mesh);
+    this.meshes.boat = designBoatMesh(gl, boat.design, paint, stats);
+    // Moving parts are separate meshes, turned about their pivots every frame.
+    this.boatParts = (boat.parts || []).map((part) => ({ ...part, mesh: boatPartMesh(gl, part, paint), angle: 0 }));
+    this.boatSmoke = boat.smoke || [];
+  }
+
+  // Advance each moving part. Propellers and paddle wheels spin faster as the boat speeds up.
+  updateBoatParts(game, time, dt) {
+    const speed = Math.hypot(game.boat.vx, game.boat.vz);
+    for (const p of this.boatParts || []) {
+      if (p.osc) p.angle = Math.sin(time * p.speed + p.pivot[2] * 3) * p.osc;
+      else p.angle += (p.speed + (p.bySpeed || 0) * speed) * dt;
+    }
   }
 
   // A firework: a bright burst high above the water, in a random festive colour.
@@ -201,8 +214,20 @@ export class Renderer {
           color: [0.45, 0.55, 0.7], alpha: 0.5, streak: 0.045 });
       }
     }
-    if (!playing) return;
+    if (!playing && !this.showcase) return;
     const b = game.boat;
+    if (this.boatSmoke && this.boatSmoke.length) {
+      t.smoke = (t.smoke || 0) + dt * 3 * this.boatSmoke.length;
+      const c = Math.cos(b.angle), s = Math.sin(b.angle);
+      while (t.smoke >= 1) {
+        t.smoke -= 1;
+        const [lx, ly, lz] = this.boatSmoke[Math.floor(Math.random() * this.boatSmoke.length)];
+        P.spawn({ x: b.x + c * lx + s * lz, y: ly, z: b.z - s * lx + c * lz,
+          vx: -b.vx * 0.3 + (Math.random() - 0.5) * 0.3, vy: 0.9 + Math.random() * 0.4, vz: -b.vz * 0.3 + (Math.random() - 0.5) * 0.3,
+          life: 2.2, size: 0.12, grow: 0.25, color: [0.55, 0.55, 0.6], alpha: 0.22, drag: 0.6 });
+      }
+    }
+    if (!playing) return;
     const st = game.stats; // embers rise from wherever this boat's lantern hangs
     t.ember += dt * (2 + 6 * game.oilPct / 100);
     while (t.ember >= 1) {
@@ -304,6 +329,7 @@ export class Renderer {
 
     const m = this.meshes;
     const lh = game.lighthouse;
+    this.updateBoatParts(game, time, dt);
 
     // Pass 1: the reflection. Draw the scene mirrored in the water plane (y = 0) into a
     // half-resolution texture. Mirroring is just a scale of -1 on y before the camera.
@@ -414,9 +440,11 @@ export class Renderer {
       this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
     });
     const bob = Math.sin(time * 2.2) * 0.08;
-    this.drawMesh(m.boat, model(b.x, bob, b.z, b.angle), {
-      glow: 0.6 + 0.6 * (game.oilPct / 100), tex: [TEX.wood, TEX.wood, 2.0],
-    });
+    const boatModel = model(b.x, bob, b.z, b.angle);
+    this.drawMesh(m.boat, boatModel, { glow: 0.6 + 0.6 * (game.oilPct / 100), tex: [TEX.wood, TEX.wood, 2.0] });
+    for (const p of this.boatParts || []) {
+      this.drawMesh(p.mesh, multiply(boatModel, pivotRotate(p.pivot[0], p.pivot[1], p.pivot[2], p.axis, p.angle)), { glow: 0.8 });
+    }
     for (const c of game.creatures) {
       const facing = Math.atan2(c.vx, c.vz);
       const stunned = c.stun > 0;

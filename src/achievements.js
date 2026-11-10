@@ -15,7 +15,7 @@ export const ACHIEVEMENTS = [
   { id: 'stormChaser', name: 'Storm Chaser', desc: 'Get lightning to stun a shadow', embers: 50 },
   { id: 'collector', name: 'Oil Baron', desc: 'Pick up 50 oil cans', embers: 50 },
   { id: 'lamplighter', name: 'Lamplighter', desc: 'Light 100 buoys', embers: 80 },
-  { id: 'fullRun', name: 'The Town Is Lit', desc: 'Finish all seven levels in one run', embers: 150 },
+  { id: 'fullRun', name: 'The Town Is Lit', desc: 'Finish every story level in one run', embers: 150 },
   { id: 'daily', name: 'Daily Sailor', desc: 'Complete a Daily Voyage', embers: 40 },
   { id: 'streak3', name: 'Three in a Row', desc: 'Clear the Daily Voyage three days running', embers: 100 },
   { id: 'voyage5', name: 'Open Water', desc: 'Reach voyage 5 in Endless', embers: 80 },

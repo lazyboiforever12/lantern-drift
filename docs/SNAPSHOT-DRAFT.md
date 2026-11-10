@@ -114,3 +114,7 @@ Caption: 473 characters.
 - Endless blessings (`src/blessings.js`): choose 1 of 3 stacking run upgrades after every voyage. 34 tests.
 - New shadow kinds: wisps (fast, steal half) and brutes (slow, steal 1.8x, need two flares). They replace ordinary
   shadows in voyages (wisps from voyage 5, a brute from voyage 7), keeping the bot-tested curve. 35 tests.
+- Minimap, first-sight tips for the new features, lifetime stats on the achievements screen.
+- Two new story levels before the finale, hand-made and bot-tuned: The Frozen Quay (snow, wisps, a brute) and
+  Whirlpool Reach (whirlpools, currents, wisps). Saves migrate (Lighthouse Point moved from slot 7 to 9).
+  Sloppy-bot win rates across the nine levels: 100/100/75/83/67/50/50/42/33%.

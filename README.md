@@ -90,7 +90,9 @@ Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and shar
 4. The Canals (currents)
 5. Ember Bay (buoys burn out: light them all in time)
 6. The Storm (wind gusts push the boat; lightning stuns shadows, but stay out from under it)
-7. Lighthouse Point (the finale), followed by an ending with fireworks, credits and your full-run time
+7. The Frozen Quay (snow, wisps, and a brute in the square)
+8. Whirlpool Reach (whirlpools, currents and wisps)
+9. Lighthouse Point (the finale, snowed in), followed by an ending with fireworks, credits and your full-run time
 
 ## Run it
 Needs [Node.js](https://nodejs.org/) (no packages to install):
@@ -193,6 +195,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Levels 7 and 8: The Frozen Quay and Whirlpool Reach (bot-tuned; sloppy-bot curve 100/100/75/83/67/50/50/42/33%)
 - [x] Minimap (Canvas 2D overlay)
 - [x] New shadows: wisps and brutes (editor, voyages, achievement)
 - [x] Endless blessings: pick 1 of 3 run upgrades after each voyage

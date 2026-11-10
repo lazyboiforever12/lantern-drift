@@ -48,6 +48,17 @@ function loadSave() {
   return { unlocked: 1, best: {} };
 }
 const save = loadSave();
+// Save version 2: two levels were added before Lighthouse Point (it moved from slot 7 to 9).
+// Move its best time, and keep everything a player had unlocked open.
+if ((save.version || 1) < 2) {
+  if (save.best[6] !== undefined) {
+    save.best[8] = save.best[6];
+    delete save.best[6];
+  }
+  if (save.unlocked >= 7) save.unlocked += 2;
+  save.version = 2;
+  writeSave();
+}
 // The Boatyard: Embers, owned boats, upgrades and paints live inside the save.
 const yard = (save.boatyard = Object.assign(defaultBoatyard(), save.boatyard || {}));
 if (!yard.boats[yard.equipped]) yard.equipped = 'skiff';

@@ -233,6 +233,22 @@ export class Renderer {
     this.boatSmoke = boat.smoke || [];
   }
 
+  // The hull leans out of turns, pitches when speeding up or slowing down, and rocks on the waves.
+  updateBoatTilt(game, time, dt, speed) {
+    const b = game.boat;
+    const t = this.tilt || (this.tilt = { roll: 0, pitch: 0, angle: b.angle, speed: 0 });
+    const k = dt > 0 ? 1 / dt : 0;
+    const turnRate = Math.atan2(Math.sin(b.angle - t.angle), Math.cos(b.angle - t.angle)) * k;
+    const accel = (speed - t.speed) * k;
+    t.angle = b.angle;
+    t.speed = speed;
+    const roll = Math.max(-0.28, Math.min(0.28, turnRate * speed * 0.03)) + Math.sin(time * 1.3 + b.x * 0.5) * 0.035;
+    const pitch = Math.max(-0.12, Math.min(0.12, -accel * 0.012)) + Math.sin(time * 1.7 + b.z * 0.5) * 0.025;
+    const ease = Math.min(1, dt * 5);
+    t.roll += (roll - t.roll) * ease;
+    t.pitch += (pitch - t.pitch) * ease;
+  }
+
   // Advance each moving part. Propellers and paddle wheels spin faster as the boat speeds up.
   updateBoatParts(game, time, dt) {
     const speed = Math.hypot(game.boat.vx, game.boat.vz);
@@ -363,13 +379,18 @@ export class Renderer {
       this.fade = 0;
     }
     this.fade = Math.min(1, this.fade + dt * 1.8);
+    // The camera leads the boat a little in the direction it's moving, and rises as it speeds up,
+    // so you see more of what's ahead.
     const follow = Math.min(1, dt * 4);
-    this.cam.x += (b.x - this.cam.x) * follow;
-    this.cam.z += (b.z - this.cam.z) * follow;
+    const speed = Math.hypot(b.vx, b.vz);
+    this.cam.x += (b.x + b.vx * 0.4 - this.cam.x) * follow;
+    this.cam.z += (b.z + b.vz * 0.4 - this.cam.z) * follow;
+    this.camHeight = (this.camHeight || 21) + (21 + Math.min(speed, 10) * 0.45 - (this.camHeight || 21)) * Math.min(1, dt * 1.5);
+    this.updateBoatTilt(game, time, dt, speed);
     // Screen shake: a quick random jitter that dies away.
     this.shakeAmount *= Math.exp(-dt * 7);
     const sx = (Math.random() - 0.5) * this.shakeAmount, sz = (Math.random() - 0.5) * this.shakeAmount;
-    let eye = [this.cam.x + sx, 21, this.cam.z + 6 + sz];
+    let eye = [this.cam.x + sx, this.camHeight, this.cam.z + 6 + sz];
     let target = [this.cam.x + sx, 0, this.cam.z - 0.5 + sz];
     if (this.showcase) {
       // Boatyard preview: a close, low camera on the boat.
@@ -541,7 +562,8 @@ export class Renderer {
       this.drawMesh(m.oil, model(o.x, 0.35 + Math.sin(time * 3 + i) * 0.1, o.z, time * 1.5), { glow: 0.8 });
     });
     const bob = Math.sin(time * 2.2) * 0.08;
-    const boatModel = model(b.x, bob, b.z, b.angle);
+    const tilt = this.tilt || { roll: 0, pitch: 0 };
+    const boatModel = multiply(multiply(model(b.x, bob, b.z, b.angle), pivotRotate(0, 0.2, 0, 'z', tilt.roll)), pivotRotate(0, 0.2, 0, 'x', tilt.pitch));
     this.drawMesh(m.boat, boatModel, { glow: 0.6 + 0.6 * (game.oilPct / 100), tex: [TEX.wood, TEX.wood, 2.0] });
     for (const p of this.boatParts || []) {
       this.drawMesh(p.mesh, multiply(boatModel, pivotRotate(p.pivot[0], p.pivot[1], p.pivot[2], p.axis, p.angle)), { glow: 0.8 });
@@ -552,7 +574,11 @@ export class Renderer {
       const tint = stunned ? [2.5, 2.5, 3.5] : WHITE;
       const y = 0.9 + Math.sin(time * 3 + c.seed) * 0.25;
       const glow = stunned ? 0.3 : c.lunge > 0 ? 2.5 : 1.3;
-      this.drawMesh(m.creature, model(c.x, y, c.z, facing), { tint, glow });
+      // Squash and stretch: breathe while hunting, stretch out in a lunge, wobble when stunned.
+      let sx = 1, sy = 1 + Math.sin(time * 4 + c.seed) * 0.06, sz = 1;
+      if (c.lunge > 0) { sx = 0.82; sy = 0.88; sz = 1.4; }
+      else if (stunned) { const w = Math.sin(time * 22 + c.seed) * 0.08; sx = 1 + w; sz = 1 - w; }
+      this.drawMesh(m.creature, model(c.x, y, c.z, facing, sx, sy, sz), { tint, glow });
     }
   }
 

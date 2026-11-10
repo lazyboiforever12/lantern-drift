@@ -159,7 +159,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 35 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 35 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day), the shadow tracer's roof limit, editor share links, achievements, whirlpools, ember shards, the dash, weather, Endless blessings, wisps and brutes, and the 4x4 matrix inverse.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `src/autopilot.js` is the bot that sails the title-screen demo; the play-test tool uses the same code.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
@@ -205,7 +205,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Photo mode, boat roll and pitch, squash-and-stretch shadows, look-ahead camera
 - [x] Live title screen: the autopilot sails the levels behind the menu with an orbiting camera
 - [x] Whirlpools and ember shards (in the editor, voyages and every story level), wall foam and ambient occlusion
-- [x] Town detail (roofs, chimneys, windows, piers, moored boats, lamp posts) and 23 achievements
+- [x] Town detail (roofs, chimneys, windows, piers, moored boats, lamp posts) and achievements
 - [x] Level editor v2: box and fill tools, mirror, undo/redo, name/difficulty/twist in share links, random maps, guide and tips
 - [ ] Play-testing by real people
 - [ ] Ship on Mipmap

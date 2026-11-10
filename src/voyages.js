@@ -122,6 +122,9 @@ function buildVoyage(seed, depth, twist, density, size) {
   place('u', diff.buoys, 6, 5);
   place('o', 4 + Math.floor((W * H) / 160), 3, 3);
   place('c', diff.creatures, 10, 4);
+  // Whirlpools from voyage 3 on, and a few ember shards to hunt on every voyage.
+  if (depth >= 2) place('w', depth >= 6 ? 2 : int(0, 1), 9, 8);
+  place('e', 2 + int(0, 2), 4, 4);
 
   const name = `The ${ADJ[int(0, ADJ.length - 1)]} ${NOUN[int(0, NOUN.length - 1)]}`;
   const def = {

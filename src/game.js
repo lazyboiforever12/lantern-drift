@@ -20,6 +20,10 @@ const LIGHTNING_COST = 12;
 const LUNGE_TIME = 0.9;      // seconds a lunge lasts
 const LUNGE_SPEED = 9;       // faster than the boat, so you can't just outrun it
 const LUNGE_RANGE = 6;       // how far outside the fear radius a shadow will start a lunge
+export const WHIRL_RADIUS = 3.4;  // how far a whirlpool's pull reaches
+const WHIRL_CORE = 0.8;      // caught in the middle: spat out (the boat loses oil, a shadow is stunned)
+const WHIRL_COST = 8;
+const SHARD_EMBERS = 3;
 
 export class Game {
   // stats: the boat's performance from the Boatyard (defaults to the starter skiff).
@@ -38,6 +42,8 @@ export class Game {
       x: p.x, z: p.z, vx: 0, vz: 0, stun: 0, lunge: 0, cool: 3 + i * 1.3, seed: i,
     }));
     this.lighthouse = L.lighthouse;
+    this.whirlpools = L.whirlpools.map((p) => ({ ...p, cool: 0 }));
+    this.shards = L.shards.map((p) => ({ ...p, taken: false }));
     this.lighthouseActive = false;
     this.flareTime = 0;
     this.flareCooldown = 0;
@@ -206,6 +212,7 @@ export class Game {
     this.updateBoat(dt, input);
     this.updatePickups();
     this.updateCreatures(dt);
+    if (this.whirlpools.length) this.updateWhirlpools(dt);
 
     // Fading buoys: until the lighthouse wakes, a lit buoy goes dark when its timer runs out.
     if (this.def.buoyTime && !this.lighthouseActive) {
@@ -372,8 +379,64 @@ export class Game {
     return { x: tx / l, z: tz / l };
   }
 
+  // Whirlpools pull things towards their middle and swirl them around it. Skimming the edge
+  // slingshots the boat; the middle spits it out and costs oil. Shadows dragged in get stunned.
+  whirlPull(x, z, dt) {
+    let fx = 0, fz = 0, core = null;
+    for (const w of this.whirlpools) {
+      const dx = w.x - x, dz = w.z - z;
+      const d = Math.hypot(dx, dz);
+      if (d >= WHIRL_RADIUS || d < 1e-4) continue;
+      const k = 1 - d / WHIRL_RADIUS;
+      const ux = dx / d, uz = dz / d;
+      fx += (ux * 7 + uz * 6) * k * dt;   // inward, plus a sideways swirl
+      fz += (uz * 7 - ux * 6) * k * dt;
+      if (d < WHIRL_CORE && w.cool <= 0) core = w;
+    }
+    return { fx, fz, core };
+  }
+
+  updateWhirlpools(dt) {
+    for (const w of this.whirlpools) w.cool = Math.max(0, w.cool - dt);
+    const b = this.boat;
+    const p = this.whirlPull(b.x, b.z, dt);
+    b.vx += p.fx;
+    b.vz += p.fz;
+    if (p.core) {
+      p.core.cool = 1.5;
+      const a = this.random() * Math.PI * 2; // seeded, so tests repeat
+      b.vx = Math.sin(a) * 9;
+      b.vz = Math.cos(a) * 9;
+      this.oil -= WHIRL_COST;
+      this.events.push({ type: 'whirl', x: p.core.x, z: p.core.z, boat: true });
+    }
+    for (const c of this.creatures) {
+      const q = this.whirlPull(c.x, c.z, dt);
+      c.x += q.fx * 0.25;
+      c.z += q.fz * 0.25;
+      if (q.core) {
+        q.core.cool = 1.5;
+        c.stun = Math.max(c.stun, 4);
+        c.lunge = 0;
+        c.vx = (c.x - q.core.x) * 6;
+        c.vz = (c.z - q.core.z) * 6;
+        this.events.push({ type: 'whirl', x: q.core.x, z: q.core.z, boat: false });
+      }
+    }
+  }
+
+  get shardsTaken() {
+    return this.shards.filter((s) => s.taken).length;
+  }
+
   updatePickups() {
     const b = this.boat;
+    for (const s of this.shards) {
+      if (!s.taken && dist(b.x, b.z, s.x, s.z) < 1.4) {
+        s.taken = true;
+        this.events.push({ type: 'shard', x: s.x, z: s.z, embers: SHARD_EMBERS });
+      }
+    }
     for (const o of this.oils) {
       if (!o.taken && dist(b.x, b.z, o.x, o.z) < 1.5) {
         o.taken = true;

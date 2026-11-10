@@ -239,6 +239,7 @@ function updateHud(dt) {
   hud.buoys.textContent = game.lighthouseActive
     ? 'Lighthouse awake: sail to it!'
     : `Buoys lit: ${lit} / ${game.buoys.length}`;
+  if (game.shards.length) hud.buoys.textContent += ` · ✦ ${game.shardsTaken} / ${game.shards.length}`;
   messageTimer = Math.max(0, messageTimer - dt);
   hud.msg.textContent = messageTimer > 0 ? message : '';
   hud.msg.style.opacity = Math.min(1, messageTimer * 2);
@@ -461,7 +462,7 @@ function startCustom(def) {
   state = 'playing';
   editor.close();
   showScreen(null);
-  say(def.tip || `${def.name}: light all ${game.buoys.length} buoy${game.buoys.length > 1 ? 's' : ''}`, def.tip ? 4 : 3);
+  say(def.tip || `${def.name}: ${game.buoys.length > 1 ? `light all ${game.buoys.length} buoys` : 'light the buoy'}`, def.tip ? 4 : 3);
 }
 
 function openEditor(rows) {
@@ -773,6 +774,8 @@ function handleEvent(ev) {
   }
   if (ev.type === 'hit') game.hitsTaken = (game.hitsTaken || 0) + 1;
   if (ev.type === 'lightning' && ev.stunned) awards.unlock('stormChaser');
+  if (ev.type === 'shard') { earn(ev.embers); awards.record('shards'); }
+  if (ev.type === 'whirl' && !ev.boat) awards.unlock('drain');
   switch (ev.type) {
     case 'oil': say('+ Oil'); break;
     case 'buoy':
@@ -785,6 +788,8 @@ function handleEvent(ev) {
       if (ev.hurt) say('Struck by lightning!', 1.5);
       else if (ev.stunned) say(`Lightning stunned ${ev.stunned} shadow${ev.stunned > 1 ? 's' : ''}!`, 1.5);
       break;
+    case 'shard': say(`+${ev.embers} \u2726 Ember shard (${game.shardsTaken} / ${game.shards.length})`, 1.5); break;
+    case 'whirl': say(ev.boat ? 'Caught in the whirlpool! Lost some oil' : 'A shadow went down the whirlpool!', 1.5); break;
     case 'buoyOut': say(`A buoy burned out! (${game.buoysLit} / ${game.buoys.length} lit)`, 2); break;
   }
 }

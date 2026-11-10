@@ -341,3 +341,55 @@ test('a flare reports how many shadows it stunned', () => {
   g.flare();
   assert.equal(g.events.find((e) => e.type === 'flare').stunned, g.creatures.length);
 });
+
+// ---------- Whirlpools and ember shards ----------
+const pool = (extra) => ({
+  name: 'Pool', drain: 0, creatureSpeed: 3, lungeCooldown: 3,
+  map: [
+    '################',
+    '#B.............#',
+    '#..............#',
+    '#..........w...#',
+    '#.....e........#',
+    '#...........u.L#',
+    '################',
+    ...(extra || []),
+  ],
+});
+
+test('a whirlpool pulls the boat in, and its middle spits it out and costs oil', () => {
+  const g = new Game(pool(), 0);
+  const w = g.whirlpools[0];
+  g.boat.x = w.x - 2.5; g.boat.z = w.z; g.boat.vx = 0; g.boat.vz = 0;
+  g.update(DT, IDLE);
+  assert.ok(g.boat.vx > 0, 'pulled towards the middle');
+  g.boat.x = w.x + 0.2; g.boat.z = w.z;
+  const before = g.oil;
+  g.update(DT, IDLE);
+  assert.ok(g.oil < before - 7, 'lost oil in the middle');
+  assert.ok(g.events.some((e) => e.type === 'whirl' && e.boat));
+  assert.ok(Math.hypot(g.boat.vx, g.boat.vz) > 8, 'flung out');
+});
+
+test('a whirlpool stuns a shadow dragged into its middle', () => {
+  const g = new Game(pool(), 0);
+  const w = g.whirlpools[0];
+  g.creatures.push({ x: w.x + 0.3, z: w.z, vx: 0, vz: 0, stun: 0, lunge: 0, cool: 9, seed: 0 });
+  g.update(DT, IDLE);
+  assert.ok(g.creatures[0].stun > 3);
+  assert.ok(g.events.some((e) => e.type === 'whirl' && !e.boat));
+});
+
+test('ember shards are picked up once, and the checker keeps whirlpools away from the start', () => {
+  const g = new Game(pool(), 0);
+  const s = g.shards[0];
+  g.boat.x = s.x; g.boat.z = s.z;
+  g.update(DT, IDLE);
+  g.update(DT, IDLE);
+  assert.equal(g.events.filter((e) => e.type === 'shard').length, 1);
+  assert.equal(g.shardsTaken, 1);
+  const near = pool();
+  near.map[2] = '#..w...........#';
+  assert.ok(checkLevel(near).some((p) => p.includes('whirlpool')));
+  for (const def of LEVELS) assert.equal(new Game(def, 0).shards.length, 3, def.name);
+});

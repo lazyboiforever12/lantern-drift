@@ -22,6 +22,8 @@ const TOOLS = [
   { ch: 'v', label: 'Current ↓', key: '9', tip: 'Water that pushes the boat down' },
   { ch: '<', label: 'Current ←', key: '0', tip: 'Water that pushes the boat left' },
   { ch: '^', label: 'Current ↑', key: '-', tip: 'Water that pushes the boat up' },
+  { ch: 'w', label: 'Whirlpool', key: '=', tip: 'Pulls in the boat and shadows. The middle costs oil, but stuns shadows' },
+  { ch: 'e', label: 'Ember shard', key: '[', tip: 'Optional treasure worth Embers' },
 ];
 const MODES = [
   { id: 'brush', label: '✎ Brush', key: 'KeyP', tip: 'Paint cells as you drag (P)' },
@@ -120,7 +122,7 @@ export function createEditor({ onPlay, onClose }) {
   const nameEl = $('.name'), diffEl = $('.difficulty'), twistEl = $('.twist');
 
   function cls(ch) {
-    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur' }[ch];
+    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard' }[ch];
   }
   const ARROWS = { '>': '→', '<': '←', '^': '↑', v: '↓' };
 
@@ -153,14 +155,15 @@ export function createEditor({ onPlay, onClose }) {
   function stats() {
     const count = (ch) => map.reduce((n, row) => n + row.split(ch).length - 1, 0);
     const water = COLS * ROWS - count('#') - count('L');
-    const buoys = count('u'), oils = count('o'), shadows = count('c');
+    const buoys = count('u'), oils = count('o'), shadows = count('c'), shards = count('e'), whirls = count('w');
     let tip = '';
     if (oils === 0) tip = 'Add some oil cans, or the lantern will run dry.';
     else if (water / oils > 70) tip = 'Tip: about one oil can per 60 water cells keeps a level fair.';
     else if (shadows === 0) tip = 'Tip: add a shadow or two, so there is some danger.';
     else if (buoys > 8) tip = 'Lots of buoys: this will be a long level.';
     else if (shadows > 8) tip = 'That is a lot of shadows. Make sure there are walls to hide behind!';
-    return `${water} water cells · ${buoys} buoy${buoys === 1 ? '' : 's'} · ${oils} oil · ${shadows} shadow${shadows === 1 ? '' : 's'}${tip ? ` · <em>${tip}</em>` : ''}`;
+    const extra = `${whirls ? ` · ${whirls} whirlpool${whirls === 1 ? '' : 's'}` : ''}${shards ? ` · ${shards} shard${shards === 1 ? '' : 's'}` : ''}`;
+    return `${water} water cells · ${buoys} buoy${buoys === 1 ? '' : 's'} · ${oils} oil · ${shadows} shadow${shadows === 1 ? '' : 's'}${extra}${tip ? ` · <em>${tip}</em>` : ''}`;
   }
 
   const isEdge = (c, r) => r === 0 || c === 0 || r === ROWS - 1 || c === COLS - 1;
@@ -397,7 +400,8 @@ export function createEditor({ onPlay, onClose }) {
       if (code === 'KeyM') { mirror = !mirror; draw(); return true; }
       const m = MODES.find((x) => x.key === code);
       if (m) { mode = m.id; draw(); return true; }
-      const t = TOOLS.find((x) => code === (x.key === '-' ? 'Minus' : `Digit${x.key}`));
+      const KEY_CODES = { '-': 'Minus', '=': 'Equal', '[': 'BracketLeft' };
+      const t = TOOLS.find((x) => code === (KEY_CODES[x.key] || `Digit${x.key}`));
       if (t) { tool = t.ch; draw(); return true; }
       return false;
     },

@@ -89,3 +89,7 @@ Mipmap captions are limited to 500 characters; this one is 446.
 - 23 achievements with Embers rewards, toasts and an achievements screen.
 - Fixed a save bug: loading kept only level progress, so Embers, boats and tips were lost on every reload.
 - 27 tests.
+- Wall foam and ambient occlusion from the building grid (the foam hides the reflection, like real foam).
+- Whirlpools (pull, swirl, spit you out for oil; stun shadows dragged in) and ember shards (optional Embers),
+  in the editor, generated voyages (whirlpools from voyage 3) and three shards in every story level.
+  Bot-tested: no stuck runs. 30 tests.

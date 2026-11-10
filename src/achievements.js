@@ -20,6 +20,8 @@ export const ACHIEVEMENTS = [
   { id: 'streak3', name: 'Three in a Row', desc: 'Clear the Daily Voyage three days running', embers: 100 },
   { id: 'voyage5', name: 'Open Water', desc: 'Reach voyage 5 in Endless', embers: 80 },
   { id: 'voyage10', name: 'Far Horizon', desc: 'Reach voyage 10 in Endless', embers: 200 },
+  { id: 'treasure', name: 'Treasure Hunter', desc: 'Collect 25 ember shards', embers: 75 },
+  { id: 'drain', name: 'Down the Drain', desc: 'Lure a shadow into a whirlpool', embers: 50 },
   { id: 'architect', name: 'Architect', desc: 'Beat a level from the editor', embers: 50 },
   { id: 'shipowner', name: 'Shipowner', desc: 'Buy a new boat in the Boatyard', embers: 20 },
   { id: 'fleet', name: 'Admiral', desc: 'Own 10 boats', embers: 150 },
@@ -57,6 +59,7 @@ export class Achievements {
       buoys: [[1, 'firstLight'], [100, 'lamplighter']],
       flares: [[10, 'flares10'], [100, 'flares100']],
       oils: [[50, 'collector']],
+      shards: [[25, 'treasure']],
       playTime: [[1800, 'nightOwl']],
     }[stat] || [];
     for (const [n, id] of goals) if (s[stat] >= n) this.unlock(id);

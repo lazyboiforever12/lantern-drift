@@ -7,7 +7,7 @@ import { createTextures, TEX } from './textures.js';
 import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate } from './math.js';
 import {
-  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh,
+  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh, whirlpoolMesh, shardMesh,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -57,6 +57,8 @@ export class Renderer {
       lighthouse: lighthouseMesh(gl),
       foam: foamMesh(gl),
       streak: streakMesh(gl),
+      whirlpool: whirlpoolMesh(gl),
+      shard: shardMesh(gl),
     };
     this.wake = [];       // foam flecks: { x, z, life, spin }
     this.wakeTimer = 0;
@@ -198,6 +200,13 @@ export class Renderer {
         this.shake(calm ? 0.1 : 0.45);
         break;
       }
+      case 'whirl':
+        P.burst(ev.x, 0.4, ev.z, { count: 36, speed: 6, up: 4, life: 0.9, color: [0.7, 0.85, 0.95] });
+        if (ev.boat) this.shake(0.4);
+        break;
+      case 'shard':
+        P.burst(ev.x, 0.8, ev.z, { count: 30, speed: 4, up: 5, life: 1.0, size: 0.08, color: [1.0, 0.85, 0.45] });
+        break;
       case 'buoyOut':
         P.burst(ev.x, 1.4, ev.z, { count: 16, speed: 1.5, up: 2, life: 1.0, color: [0.3, 0.45, 0.5], gravity: 0 });
         break;
@@ -513,6 +522,14 @@ export class Renderer {
       this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
         glow: bu.lit ? 2 * game.buoyStrength(bu) : 0.35 + 0.25 * Math.sin(time * 3 + i),
       });
+    });
+    for (const w of game.whirlpools) {
+      const pulse = 1 + 0.05 * Math.sin(time * 3 + w.x);
+      this.drawMesh(m.whirlpool, model(w.x, 0, w.z, -time * 2.4, pulse, 1, pulse), { glow: 1 });
+    }
+    game.shards.forEach((s, i) => {
+      if (s.taken) return;
+      this.drawMesh(m.shard, model(s.x, 0.75 + Math.sin(time * 2.5 + i) * 0.15, s.z, time * 1.8), { glow: 1.6 + 0.6 * Math.sin(time * 5 + i) });
     });
     game.oils.forEach((o, i) => {
       if (o.taken) return;

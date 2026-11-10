@@ -117,6 +117,34 @@ export function foamMesh(gl) {
   return new MeshBuilder().box(0, 0.2, 0, 0.34, 0.03, 0.34, [0.75, 0.85, 0.9], 0.35).build(gl);
 }
 
+// A whirlpool: a dark eye with three spiral arms of foam. The renderer spins it.
+export function whirlpoolMesh(gl) {
+  const b = new MeshBuilder();
+  b.box(0, 0.03, 0, 1.3, 0.02, 1.3, [0.02, 0.04, 0.06]);
+  b.box(0, 0.02, 0, 2.2, 0.02, 2.2, [0.05, 0.1, 0.13]);
+  for (let arm = 0; arm < 3; arm++) {
+    for (let i = 0; i < 22; i++) {
+      const t = i / 21;
+      const r = 0.45 + t * 2.9;
+      const a = (arm * Math.PI * 2) / 3 + t * 3.6;
+      const s = 0.4 * (1 - t * 0.55);
+      b.box(Math.cos(a) * r, 0.06, Math.sin(a) * r, s, 0.03, s, [0.7, 0.82, 0.88], 0.3 * (1 - t * 0.7));
+    }
+  }
+  return b.build(gl);
+}
+
+// An ember shard: a small glowing three-armed star.
+export function shardMesh(gl) {
+  const gold = [1.0, 0.82, 0.42];
+  return new MeshBuilder()
+    .box(0, 0, 0, 0.12, 0.55, 0.12, gold, 1)
+    .box(0, 0, 0, 0.45, 0.12, 0.12, gold, 1)
+    .box(0, 0, 0, 0.12, 0.12, 0.45, gold, 1)
+    .box(0, 0, 0, 0.22, 0.22, 0.22, [1.0, 0.95, 0.8], 1)
+    .build(gl);
+}
+
 // A thin streak drifting along a current, pointing along +Z.
 export function streakMesh(gl) {
   return new MeshBuilder().box(0, 0.22, 0, 0.09, 0.02, 0.75, [0.55, 0.75, 0.9], 0.3).build(gl);

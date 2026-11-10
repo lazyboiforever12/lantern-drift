@@ -239,6 +239,9 @@ canvas {
 #editor .boat, #editor .tools .tboat i { background: #d9a05b; }
 #editor .light, #editor .tools .tlight i { background: #fff1b8; box-shadow: 0 0 8px #ffd27a; }
 #editor .cur, #editor .tools .tcur i { background: #1d5770; }
+#editor .whirl, #editor .tools .twhirl i { background: radial-gradient(#04080c 25%, #bfe6ff 32%, #17394a 45%); }
+#editor .shard, #editor .tools .tshard i { background: radial-gradient(#ffe39a 30%, #17394a 38%); }
+#editor .tools .tshard i { background: #ffd27a; }
 #editor .settings-row, #editor .modes-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; font-size: 13px; }
 #editor .settings-row input, #editor .settings-row select {
   font: 13px system-ui, sans-serif; color: #f3e6c8; background: #1a2233; border: 1px solid #ffd27a44;

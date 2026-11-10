@@ -111,7 +111,7 @@ const SETTING_ROWS = [
   { key: 'shake', label: 'Screen shake', type: 'bool' },
   { key: 'flashes', label: 'Flashing effects', type: 'bool' },
   { key: 'autoQuality', label: 'Auto quality (if slow)', type: 'bool' },
-  { key: 'rain', label: 'Rain', type: 'bool' },
+  { key: 'rain', label: 'Weather (rain, snow, fog)', type: 'bool' },
   { key: 'sound', label: 'Sound volume', type: 'level' },
   { key: 'music', label: 'Music volume', type: 'level' },
   { key: 'fps', label: 'Show frame rate', type: 'bool' },

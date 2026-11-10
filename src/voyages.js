@@ -127,6 +127,7 @@ function buildVoyage(seed, depth, twist, density, size) {
   place('e', 2 + int(0, 2), 4, 4);
 
   const name = `The ${ADJ[int(0, ADJ.length - 1)]} ${NOUN[int(0, NOUN.length - 1)]}`;
+  const weather = twist === 'storm' ? 'rain' : ['rain', 'rain', 'fog', 'snow', 'clear'][int(0, 4)];
   const def = {
     name,
     generated: true,
@@ -135,6 +136,7 @@ function buildVoyage(seed, depth, twist, density, size) {
     drain: diff.drain,
     creatureSpeed: diff.creatureSpeed,
     lungeCooldown: diff.lungeCooldown,
+    weather,
     map: g.map((row) => row.join('')),
   };
   if (twist === 'fading') {

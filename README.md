@@ -106,6 +106,9 @@ Then open http://localhost:5173
 - **Foam and ambient occlusion:** the same height grid gives each water pixel its distance to the nearest wall,
   so water lapping against buildings gets an animated foam line (which hides the reflection, like real foam), and
   water hemmed in by walls, and the bottoms of brick walls, get darker ambient light.
+- **Weather:** rain (streak particles), snow (drifting flakes, snow-covered roofs and a brighter, moonlit ambient), fog
+  (thick glowing mist and drifting fog banks) or a clear night. The Canals are foggy, Ember Bay is clear, Lighthouse
+  Point is snowed in, voyages pick their own, and the editor has a weather setting that travels in share links.
 - **Night sky** (`src/sky.js`): a full-screen pass rebuilds each pixel's view ray from the inverse view-projection
   matrix (hand-written 4x4 inverse in `src/math.js`) and draws a gradient with a warm haze over the town, twinkling
   stars, a moon with a halo and drifting fbm-noise clouds lit from behind. It's drawn mirrored in the reflection pass
@@ -147,7 +150,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
 - `src/audio.js`: all sounds and the generative music, made live with the Web Audio API (no sound files)
 
 ### Dev tools
-- `node --test tests/game.test.mjs` (or `npm test`) runs 32 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
+- `node --test tests/game.test.mjs` (or `npm test`) runs 33 tests: oil, pickups, flares, hits, buildings, currents, fading buoys, storm lightning, winning and losing, share codes, the level checker, boat traits, generated voyages (fair at every depth, same seed same map, harder with depth, daily changes each day) the shadow tracer's roof limit, editor share links, achievements, whirlpools and ember shards.
 - `node tools/checklevels.mjs` checks every map: closed walls, and that every buoy, oil can and lighthouse can be reached.
 - `src/autopilot.js` is the bot that sails the title-screen demo; the play-test tool uses the same code.
 - `node tools/autoplay.mjs` has two bots (a "good" one and a "sloppy" one) play every level many times
@@ -183,6 +186,7 @@ Hackatime time on this project is mostly AI-assisted time.
 - [x] Boatyard: Embers currency, 22 boats with traits and moving parts, upgrades, paints, live 3D preview
 - [x] Ray-traced shadows (grid DDA + sphere occluders), volumetric light, 1080p/1440p/4K and 30-240/uncapped frame-rate options
 - [x] Daily Voyage (seeded by date, streaks) and Endless mode (procedural voyages that keep getting harder)
+- [x] Weather: rain, snow, fog and clear nights
 - [x] Dash (Shift / B / RB / » button)
 - [x] Night sky with moon, stars and clouds (reflected in the water)
 - [x] Photo mode, boat roll and pitch, squash-and-stretch shadows, look-ahead camera

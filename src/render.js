@@ -281,11 +281,29 @@ export class Renderer {
     this.particles.burst(x, 7 + Math.random() * 3, z, { count: 140, speed: 9, up: 3, life: 1.8, size: 0.2, color, gravity: -3 });
   }
 
-  // Ambient particles: rain everywhere, embers from the lantern, wisps trailing the shadows.
+  // Ambient particles: the weather (rain, snow or fog wisps), embers from the lantern, wisps trailing the shadows.
   emitAmbient(game, dt, playing) {
     const P = this.particles;
     const t = this.timers;
-    if (this.settings.rain) {
+    const weather = game.def.weather || 'rain';
+    if (this.settings.rain && weather === 'snow') {
+      t.rain += dt * 70;
+      while (t.rain >= 1) {
+        t.rain -= 1;
+        const y = 8 + Math.random() * 4;
+        const fall = 1.6 + Math.random() * 0.8;
+        P.spawn({ x: this.cam.x + (Math.random() - 0.5) * 44, y, z: this.cam.z + (Math.random() - 0.5) * 30 - 2,
+          vx: 0.4 + (Math.random() - 0.5) * 0.8, vy: -fall, vz: (Math.random() - 0.5) * 0.6, life: y / fall, size: 0.045,
+          color: [0.85, 0.88, 0.95], alpha: 0.75, drag: 0 });
+      }
+    } else if (this.settings.rain && weather === 'fog') {
+      t.rain += dt * 6;
+      while (t.rain >= 1) {
+        t.rain -= 1;
+        P.spawn({ x: this.cam.x + (Math.random() - 0.5) * 40, y: 0.6 + Math.random() * 1.5, z: this.cam.z + (Math.random() - 0.5) * 28,
+          vx: 0.3, vy: 0.02, vz: 0.1, life: 6, size: 1.6, grow: 0.3, color: [0.4, 0.45, 0.5], alpha: 0.05, drag: 0 });
+      }
+    } else if (this.settings.rain && weather === 'rain') {
       t.rain += dt * 90;
       while (t.rain >= 1) {
         t.rain -= 1;
@@ -340,7 +358,7 @@ export class Renderer {
     }
     this.levelMeshes = {
       water: waterMesh(gl, game.level),
-      buildings: buildingsMesh(gl, game.level),
+      buildings: buildingsMesh(gl, game.level, game.def.weather),
       props: propsMesh(gl, game.level),
     };
     // Cells with flowing water, for drawing drifting streaks.
@@ -434,7 +452,10 @@ export class Renderer {
     gl.uniformMatrix4fv(u.uViewProj, false, viewProj);
     gl.uniform1f(u.uTime, time);
     gl.uniform3fv(u.uCamPos, eye);
-    gl.uniform3f(u.uAmbient, 0.012, 0.014, 0.026);
+    // Snow brightens the night a little (it reflects the moon); fog and clear nights change the mist.
+    const weather = game.def.weather || 'rain';
+    if (weather === 'snow') gl.uniform3f(u.uAmbient, 0.022, 0.026, 0.042);
+    else gl.uniform3f(u.uAmbient, 0.012, 0.014, 0.026);
     const md = MOON;
     const ml = Math.hypot(...md);
     gl.uniform3f(u.uMoonDir, md[0] / ml, md[1] / ml, md[2] / ml);
@@ -459,7 +480,8 @@ export class Renderer {
     occ.forEach((c, i) => this.occluders.set([c.x, 0.9 + Math.sin(time * 3 + c.seed) * 0.25, c.z, 0.55], i * 4));
     gl.uniform1i(u.uOccluderCount, occ.length);
     gl.uniform4fv(u.uOccluders, this.occluders);
-    gl.uniform1f(u.uFog, this.settings.fog && this.autoLevel < 2 ? 0.035 : 0);
+    const mist = { fog: 0.075, clear: 0.015, snow: 0.03 }[weather] || 0.035;
+    gl.uniform1f(u.uFog, this.settings.fog && this.autoLevel < 2 ? mist : 0);
 
     const m = this.meshes;
     const lh = game.lighthouse;

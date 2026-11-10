@@ -107,3 +107,6 @@ Caption: 473 characters.
 - Night sky pass (`src/sky.js`): inverse view-projection rays, stars, moon and halo, fbm clouds, mirrored into the
   water reflection. 31 tests.
 - Dash: Shift (B / RB / touch button) gives a short burst past top speed for 4 oil, 2.2 s cooldown. 32 tests.
+- Phone layout fix for the new touch button; 4K hardening (2x MSAA above 6 MP, fallback if buffers fail).
+- Weather: rain, snow (flakes, snowy roofs, brighter ambient), fog (dense mist, fog banks) and clear nights, in story
+  levels, voyages and the editor (share links carry it). 33 tests.

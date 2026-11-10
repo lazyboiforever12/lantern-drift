@@ -4,7 +4,7 @@
 //
 // Tools: brush (paint as you drag), box (drag a rectangle), fill (flood a connected area),
 // plus a mirror switch that paints the other half of the map too. Undo / redo keep 100 steps.
-import { checkLevel, encodeShare, decodeShare, customLevel, DIFFICULTIES, TWISTS } from './levels.js';
+import { checkLevel, encodeShare, decodeShare, customLevel, DIFFICULTIES, TWISTS, WEATHERS } from './levels.js';
 import { generateVoyage } from './voyages.js';
 
 const COLS = 32, ROWS = 16;
@@ -80,6 +80,7 @@ export function createEditor({ onPlay, onClose }) {
       <label>Name <input class="name" maxlength="40" placeholder="Your level"></label>
       <label>Difficulty <select class="difficulty">${DIFFICULTIES.map((d, i) => `<option value="${i}">${d.name}</option>`).join('')}</select></label>
       <label>Twist <select class="twist">${TWISTS.map((t, i) => `<option value="${i}">${t.name}</option>`).join('')}</select></label>
+      <label>Weather <select class="weather">${WEATHERS.map((w, i) => `<option value="${i}">${w.name}</option>`).join('')}</select></label>
     </div>
     <div class="modes-row">${MODES.map((m) => `<button data-mode="${m.id}" title="${m.tip}">${m.label}</button>`).join('')}
       <button data-act="mirror" title="Paint both halves of the map at once (M)">⇆ Mirror</button></div>
@@ -93,7 +94,7 @@ export function createEditor({ onPlay, onClose }) {
 
   const saved = load();
   let map = saved ? saved.map : blankMap();
-  const opts = { difficulty: saved ? saved.difficulty : 1, twist: saved ? saved.twist : 0, name: saved ? saved.name : '' };
+  const opts = { difficulty: saved ? saved.difficulty : 1, twist: saved ? saved.twist : 0, weather: saved ? saved.weather : 0, name: saved ? saved.name : '' };
   let tool = '#';
   let mode = 'brush';
   let mirror = false;
@@ -119,7 +120,7 @@ export function createEditor({ onPlay, onClose }) {
   }
   const statusEl = $('.status');
   const statsEl = $('.stats');
-  const nameEl = $('.name'), diffEl = $('.difficulty'), twistEl = $('.twist');
+  const nameEl = $('.name'), diffEl = $('.difficulty'), twistEl = $('.twist'), weatherEl = $('.weather');
 
   function cls(ch) {
     return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard' }[ch];
@@ -145,6 +146,7 @@ export function createEditor({ onPlay, onClose }) {
     nameEl.value = opts.name;
     diffEl.value = opts.difficulty;
     twistEl.value = opts.twist;
+    weatherEl.value = opts.weather;
     const problems = checkLevel(def());
     statusEl.textContent = problems.length ? `⚠ ${problems[0]}` : '✓ Ready to play';
     statusEl.classList.toggle('bad', problems.length > 0);
@@ -228,9 +230,9 @@ export function createEditor({ onPlay, onClose }) {
     const valid = (m) => Array.isArray(m) && m.length === ROWS && m.every((row) => typeof row === 'string' && row.length === COLS);
     try {
       const s = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (s && valid(s.map)) return { map: s.map, difficulty: s.difficulty | 0, twist: s.twist | 0, name: String(s.name || '') };
+      if (s && valid(s.map)) return { map: s.map, difficulty: s.difficulty | 0, twist: s.twist | 0, weather: s.weather | 0, name: String(s.name || '') };
       const old = JSON.parse(localStorage.getItem(OLD_STORE_KEY));
-      if (valid(old)) return { map: old, difficulty: 1, twist: 0, name: '' };
+      if (valid(old)) return { map: old, difficulty: 1, twist: 0, weather: 0, name: '' };
     } catch { /* fresh map */ }
     return null;
   }
@@ -287,7 +289,7 @@ export function createEditor({ onPlay, onClose }) {
       for (let c = 0; c < Math.min(COLS, row.length); c++) out[r] = out[r].slice(0, c) + row[c] + out[r].slice(c + 1);
     });
     map = out;
-    if (!Array.isArray(level)) Object.assign(opts, { difficulty: level.difficulty, twist: level.twist, name: level.name });
+    if (!Array.isArray(level)) Object.assign(opts, { difficulty: level.difficulty, twist: level.twist, weather: level.weather | 0, name: level.name });
     save();
     draw();
   }
@@ -374,6 +376,7 @@ export function createEditor({ onPlay, onClose }) {
   nameEl.addEventListener('input', () => { opts.name = nameEl.value; save(); });
   diffEl.addEventListener('change', () => { opts.difficulty = Number(diffEl.value); save(); draw(); });
   twistEl.addEventListener('change', () => { opts.twist = Number(twistEl.value); save(); draw(); });
+  weatherEl.addEventListener('change', () => { opts.weather = Number(weatherEl.value); save(); draw(); });
   // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) while the editor is open, but not while typing a name.
   addEventListener('keydown', (e) => {
     if (el.classList.contains('hidden') || e.target === nameEl || !(e.ctrlKey || e.metaKey)) return;

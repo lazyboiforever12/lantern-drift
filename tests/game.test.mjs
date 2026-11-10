@@ -422,3 +422,16 @@ test('dash: a burst past top speed for a little oil, then a cooldown', () => {
   run(g, 1, fwd);
   assert.ok(Math.hypot(g.boat.vx, g.boat.vz) <= g.stats.maxSpeed + 0.01, 'back to normal top speed');
 });
+
+// ---------- Weather ----------
+test('weather travels in share links, storms always rain, and voyages pick one', () => {
+  const map = LEVELS[0].map;
+  const back = decodeShare(encodeShare({ map, difficulty: 2, twist: 0, weather: 1 }));
+  assert.equal(back.weather, 1);
+  assert.equal(customLevel(back).weather, 'snow');
+  assert.equal(customLevel({ map, twist: 2, weather: 1 }).weather, 'rain'); // storm
+  assert.equal(decodeShare(encodeMap(map)).weather, 0);
+  const kinds = new Set();
+  for (let s = 0; s < 40; s++) kinds.add(generateVoyage(s * 13, 2).weather);
+  assert.ok(kinds.size >= 3, [...kinds].join());
+});

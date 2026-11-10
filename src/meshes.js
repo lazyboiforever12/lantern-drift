@@ -199,7 +199,11 @@ const FRAME = [0.16, 0.13, 0.11];
 
 // Every building cell is a small house: walls, a pitched or flat roof, maybe a chimney, and
 // windows (some lit, some dark, with frames) on each side that faces water. All one static mesh.
-export function buildingsMesh(gl, level) {
+// weather 'snow' whitens the roofs, parapets and chimney tops.
+export function buildingsMesh(gl, level, weather = 'rain') {
+  const snow = weather === 'snow';
+  const SNOW = [0.78, 0.8, 0.86];
+  const SNOW_GLOW = 0.015; // a faint glow: smooth snow (no tile texture) that shows up at night
   const b = new MeshBuilder();
   const { grid, cell } = level;
   const solid = (c, r) => !grid[r] || grid[r][c] === undefined || grid[r][c] === '#';
@@ -212,25 +216,26 @@ export function buildingsMesh(gl, level) {
       const shade = 0.28 + hash(row, col) * 0.18;
       const color = [shade, shade * 0.95, shade * 0.9];
       b.box(x, h / 2 - 1, z, cell, h + 2, cell, color);
-      const roof = ROOF_TILES[Math.floor(hash(col + 3, row + 11) * ROOF_TILES.length)];
+      const roof = snow ? SNOW : ROOF_TILES[Math.floor(hash(col + 3, row + 11) * ROOF_TILES.length)];
       if (hash(col + 1, row + 2) > 0.4) {
         // Pitched roof: three steps narrowing to a ridge, running along x or z.
         const alongX = hash(col + 9, row) > 0.5;
         for (let i = 0; i < 3; i++) {
           const w = cell * (0.98 - i * 0.32);
-          b.box(x, h + 0.09 + i * 0.17, z, alongX ? cell * 0.98 : w, 0.18, alongX ? w : cell * 0.98, roof);
+          b.box(x, h + 0.09 + i * 0.17, z, alongX ? cell * 0.98 : w, 0.18, alongX ? w : cell * 0.98, roof, snow ? SNOW_GLOW : 0);
         }
       } else {
         // Flat roof with a low parapet around the edge.
         const p = 0.12, e = cell / 2 - p / 2;
-        const cap = [shade * 0.6, shade * 0.55, shade * 0.5];
+        const cap = snow ? SNOW : [shade * 0.6, shade * 0.55, shade * 0.5];
+        if (snow) b.box(x, h + 0.02, z, cell * 0.9, 0.04, cell * 0.9, SNOW, SNOW_GLOW); // snow lying on the flat roof
         b.box(x, h + 0.08, z - e, cell, 0.16, p, cap).box(x, h + 0.08, z + e, cell, 0.16, p, cap);
         b.box(x - e, h + 0.08, z, p, 0.16, cell, cap).box(x + e, h + 0.08, z, p, 0.16, cell, cap);
       }
       if (hash(col + 5, row + 7) > 0.68) {
         const cx = x + (hash(col, row + 13) - 0.5) * 1.0, cz = z + (hash(col + 13, row) - 0.5) * 1.0;
         b.box(cx, h + 0.4, cz, 0.28, 0.75, 0.28, [0.3, 0.17, 0.13]);
-        b.box(cx, h + 0.8, cz, 0.36, 0.08, 0.36, [0.18, 0.14, 0.12]);
+        b.box(cx, h + 0.8, cz, 0.36, 0.08, 0.36, snow ? SNOW : [0.18, 0.14, 0.12]);
       }
       // Windows on every side that faces open water.
       SIDES.forEach(([dc, dr], s) => {

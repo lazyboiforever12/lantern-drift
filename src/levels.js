@@ -80,6 +80,7 @@ export const LEVELS = [
   },
   {
     name: 'The Canals',
+    weather: 'fog',
     tip: 'Currents carry your boat. Ride them, or row hard against them.',
     drain: 2.4,
     creatureSpeed: 3.4,
@@ -105,6 +106,7 @@ export const LEVELS = [
   },
   {
     name: 'Ember Bay',
+    weather: 'clear',
     tip: 'Buoys burn out here! Light them all before the first one fades.',
     drain: 2.35,
     creatureSpeed: 3.6,
@@ -157,6 +159,7 @@ export const LEVELS = [
   },
   {
     name: 'Lighthouse Point',
+    weather: 'snow',
     tip: 'The last lighthouse. The shadows are thick out here.',
     drain: 2.55,
     creatureSpeed: 3.7,
@@ -238,6 +241,14 @@ export function decodeLevel(code) {
   return map;
 }
 
+// Weather changes how a level looks (particles, mist, snow on roofs), not how it plays.
+export const WEATHERS = [
+  { id: 'rain', name: 'Rain' },
+  { id: 'snow', name: 'Snow' },
+  { id: 'fog', name: 'Fog' },
+  { id: 'clear', name: 'Clear night' },
+];
+
 // Level settings that travel with a share code: how hard it is, and an optional twist.
 export const DIFFICULTIES = [
   { name: 'Calm', drain: 2.0, creatureSpeed: 2.4, lungeCooldown: 3.8 },
@@ -251,10 +262,10 @@ export const TWISTS = [
   { name: 'Storm', storm: { wind: 1.8, lightningEvery: 5 }, tip: 'A storm! Lure shadows under the lightning, but stay clear yourself.' },
 ];
 
-// Full share code: the map code, then "~" + difficulty and twist digits, then "~" + the level's name.
+// Full share code: the map code, then "~" + difficulty, twist and weather digits, then "~" + the level's name.
 // Old codes (map only) still load, as Normal with no twist.
-export function encodeShare({ map, difficulty = 1, twist = 0, name = '' }) {
-  let code = `${encodeLevel(map)}~${difficulty}${twist}`;
+export function encodeShare({ map, difficulty = 1, twist = 0, weather = 0, name = '' }) {
+  let code = `${encodeLevel(map)}~${difficulty}${twist}${weather}`;
   if (name) code += `~${encodeURIComponent(name.slice(0, 40))}`;
   return code;
 }
@@ -263,19 +274,21 @@ export function decodeShare(text) {
   const [mapCode, opts = '10', name = ''] = text.trim().split('~');
   const difficulty = Math.min(DIFFICULTIES.length - 1, Number(opts[0]) || 0);
   const twist = Math.min(TWISTS.length - 1, Number(opts[1]) || 0);
+  const weather = Math.min(WEATHERS.length - 1, Number(opts[2]) || 0);
   let title = '';
   try { title = decodeURIComponent(name).slice(0, 40); } catch { /* bad name: leave it blank */ }
-  return { map: decodeLevel(mapCode), difficulty, twist, name: title };
+  return { map: decodeLevel(mapCode), difficulty, twist, weather, name: title };
 }
 
 // Builds a playable level definition from editor settings.
-export function customLevel({ map, difficulty = 1, twist = 0, name = '' }) {
+export function customLevel({ map, difficulty = 1, twist = 0, weather = 0, name = '' }) {
   const d = DIFFICULTIES[difficulty] || DIFFICULTIES[1];
   const t = TWISTS[twist] || TWISTS[0];
   const def = { name: name || 'Your level', drain: d.drain, creatureSpeed: d.creatureSpeed, lungeCooldown: d.lungeCooldown, map };
   if (t.buoyTime) def.buoyTime = t.buoyTime;
   if (t.storm) def.storm = t.storm;
   if (t.tip) def.tip = t.tip;
+  def.weather = t.storm ? 'rain' : (WEATHERS[weather] || WEATHERS[0]).id; // storms always rain
   return def;
 }
 

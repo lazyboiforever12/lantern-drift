@@ -112,3 +112,5 @@ Caption: 473 characters.
   levels, voyages and the editor (share links carry it). 33 tests.
 - Weather ambience (filtered noise with gusts per weather).
 - Endless blessings (`src/blessings.js`): choose 1 of 3 stacking run upgrades after every voyage. 34 tests.
+- New shadow kinds: wisps (fast, steal half) and brutes (slow, steal 1.8x, need two flares). They replace ordinary
+  shadows in voyages (wisps from voyage 5, a brute from voyage 7), keeping the bot-tested curve. 35 tests.

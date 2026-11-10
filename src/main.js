@@ -913,6 +913,7 @@ function handleEvent(ev) {
   if (ev.type === 'lightning' && ev.stunned) awards.unlock('stormChaser');
   if (ev.type === 'shard') { earn(ev.embers); awards.record('shards'); }
   if (ev.type === 'whirl' && !ev.boat) awards.unlock('drain');
+  if (ev.type === 'bruteStun') awards.unlock('bruteStun');
   switch (ev.type) {
     case 'oil': say('+ Oil'); break;
     case 'buoy':

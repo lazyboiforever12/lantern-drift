@@ -16,6 +16,8 @@ const TOOLS = [
   { ch: 'u', label: 'Buoy', key: '3', tip: 'Sail past to light it. Light every buoy to wake the lighthouse' },
   { ch: 'o', label: 'Oil', key: '4', tip: 'Refills the lantern. Long levels need more of these' },
   { ch: 'c', label: 'Shadow', key: '5', tip: 'Where a shadow creature starts. Keep them away from the boat start' },
+  { ch: 'q', label: 'Wisp', key: ']', tip: 'A small, fast shadow. Steals less oil' },
+  { ch: 'g', label: 'Brute', key: '#', tip: 'A big, slow shadow that steals more. The first flare only staggers it' },
   { ch: 'B', label: 'Boat start', key: '6', tip: 'Where the player begins (only one)' },
   { ch: 'L', label: 'Lighthouse', key: '7', tip: 'The goal (only one). It needs water next to it' },
   { ch: '>', label: 'Current →', key: '8', tip: 'Water that pushes the boat right' },
@@ -123,7 +125,7 @@ export function createEditor({ onPlay, onClose }) {
   const nameEl = $('.name'), diffEl = $('.difficulty'), twistEl = $('.twist'), weatherEl = $('.weather');
 
   function cls(ch) {
-    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard' }[ch];
+    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', q: 'wisp', g: 'brute', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard' }[ch];
   }
   const ARROWS = { '>': '→', '<': '←', '^': '↑', v: '↓' };
 
@@ -157,7 +159,7 @@ export function createEditor({ onPlay, onClose }) {
   function stats() {
     const count = (ch) => map.reduce((n, row) => n + row.split(ch).length - 1, 0);
     const water = COLS * ROWS - count('#') - count('L');
-    const buoys = count('u'), oils = count('o'), shadows = count('c'), shards = count('e'), whirls = count('w');
+    const buoys = count('u'), oils = count('o'), shadows = count('c') + count('q') + count('g'), shards = count('e'), whirls = count('w');
     let tip = '';
     if (oils === 0) tip = 'Add some oil cans, or the lantern will run dry.';
     else if (water / oils > 70) tip = 'Tip: about one oil can per 60 water cells keeps a level fair.';
@@ -403,7 +405,7 @@ export function createEditor({ onPlay, onClose }) {
       if (code === 'KeyM') { mirror = !mirror; draw(); return true; }
       const m = MODES.find((x) => x.key === code);
       if (m) { mode = m.id; draw(); return true; }
-      const KEY_CODES = { '-': 'Minus', '=': 'Equal', '[': 'BracketLeft' };
+      const KEY_CODES = { '-': 'Minus', '=': 'Equal', '[': 'BracketLeft', ']': 'BracketRight', '#': 'Backslash' };
       const t = TOOLS.find((x) => code === (KEY_CODES[x.key] || `Digit${x.key}`));
       if (t) { tool = t.ch; draw(); return true; }
       return false;

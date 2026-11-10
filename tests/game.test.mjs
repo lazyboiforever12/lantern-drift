@@ -460,3 +460,29 @@ test('blessings: three different choices, applied to a copy of the stats, and th
   assert.equal(g.tank, 125);
 });
 function rng2(seed) { return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }
+
+// ---------- Wisps and brutes ----------
+test('a brute shrugs off one flare but is stunned by a second; wisps steal less', () => {
+  const def = pool();
+  def.map[3] = '#....g.........#';
+  const g = new Game(def, 0);
+  const brute = g.creatures.find((c) => c.kind === 'brute');
+  brute.x = g.boat.x + 3; brute.z = g.boat.z;
+  g.flare();
+  assert.ok(brute.stun < 1, 'only staggered');
+  g.flareCooldown = 0;
+  g.flare();
+  assert.ok(brute.stun > 2, 'stunned by the second flare');
+  assert.ok(g.events.some((e) => e.type === 'bruteStun'));
+
+  const w = pool();
+  w.map[3] = '#.........q.....#'.slice(0, 16);
+  const gw = new Game(w, 0);
+  const wisp = gw.creatures.find((c) => c.kind === 'wisp');
+  assert.ok(wisp);
+  wisp.x = gw.boat.x + 0.5; wisp.z = gw.boat.z; wisp.cool = 99;
+  const before = gw.oil;
+  gw.update(DT, IDLE);
+  const lost = before - gw.oil;
+  assert.ok(lost > 5 && lost < 12, `wisp stole ${lost}`);
+});

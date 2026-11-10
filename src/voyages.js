@@ -121,7 +121,13 @@ function buildVoyage(seed, depth, twist, density, size) {
   const diff = voyageDifficulty(depth);
   place('u', diff.buoys, 6, 5);
   place('o', 4 + Math.floor((W * H) / 160), 3, 3);
-  place('c', diff.creatures, 10, 4);
+  // New kinds of shadow further out: quick wisps from voyage 5, a brute from voyage 7. They take
+  // the place of ordinary shadows, so the number of shadows stays the same.
+  const wisps = depth >= 4 ? 1 + Math.floor((depth - 4) / 4) : 0;
+  const brutes = depth >= 6 ? 1 : 0;
+  place('c', Math.max(1, diff.creatures - wisps - brutes), 10, 4);
+  if (wisps) place('q', wisps, 11, 4);
+  if (brutes) place('g', brutes, 12, 6);
   // Whirlpools from voyage 3 on, and a few ember shards to hunt on every voyage.
   if (depth >= 2) place('w', depth >= 6 ? 2 : int(0, 1), 9, 8);
   place('e', 2 + int(0, 2), 4, 4);

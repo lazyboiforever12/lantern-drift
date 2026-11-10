@@ -477,7 +477,10 @@ export class Renderer {
     const rt = this.raytracing;
     gl.uniform1i(u.uRayShadows, rt ? 1 : 0);
     const occ = rt ? game.creatures.slice(0, MAX_OCCLUDERS) : [];
-    occ.forEach((c, i) => this.occluders.set([c.x, 0.9 + Math.sin(time * 3 + c.seed) * 0.25, c.z, 0.55], i * 4));
+    occ.forEach((c, i) => {
+      const k = c.kind === 'wisp' ? 0.65 : c.kind === 'brute' ? 1.5 : 1;
+      this.occluders.set([c.x, (0.9 + Math.sin(time * 3 + c.seed) * 0.25) * (0.6 + 0.4 * k), c.z, 0.55 * k], i * 4);
+    });
     gl.uniform1i(u.uOccluderCount, occ.length);
     gl.uniform4fv(u.uOccluders, this.occluders);
     const mist = { fog: 0.075, clear: 0.015, snow: 0.03 }[weather] || 0.035;
@@ -632,14 +635,17 @@ export class Renderer {
     for (const c of game.creatures) {
       const facing = Math.atan2(c.vx, c.vz);
       const stunned = c.stun > 0;
-      const tint = stunned ? [2.5, 2.5, 3.5] : WHITE;
+      // Wisps are pale and quick, brutes big and dark red; all share one mesh, scaled and tinted.
+      const kindTint = c.kind === 'wisp' ? [1.3, 2.1, 2.7] : c.kind === 'brute' ? [1.5, 0.45, 0.5] : WHITE;
+      const tint = stunned ? [2.5, 2.5, 3.5] : kindTint;
+      const k = c.kind === 'wisp' ? 0.65 : c.kind === 'brute' ? 1.5 : 1;
       const y = 0.9 + Math.sin(time * 3 + c.seed) * 0.25;
       const glow = stunned ? 0.3 : c.lunge > 0 ? 2.5 : 1.3;
       // Squash and stretch: breathe while hunting, stretch out in a lunge, wobble when stunned.
       let sx = 1, sy = 1 + Math.sin(time * 4 + c.seed) * 0.06, sz = 1;
       if (c.lunge > 0) { sx = 0.82; sy = 0.88; sz = 1.4; }
       else if (stunned) { const w = Math.sin(time * 22 + c.seed) * 0.08; sx = 1 + w; sz = 1 - w; }
-      this.drawMesh(m.creature, model(c.x, y, c.z, facing, sx, sy, sz), { tint, glow });
+      this.drawMesh(m.creature, model(c.x, y * (0.6 + 0.4 * k), c.z, facing, sx * k, sy * k, sz * k), { tint, glow });
     }
   }
 

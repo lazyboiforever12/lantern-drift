@@ -22,6 +22,7 @@ export const ACHIEVEMENTS = [
   { id: 'voyage10', name: 'Far Horizon', desc: 'Reach voyage 10 in Endless', embers: 200 },
   { id: 'treasure', name: 'Treasure Hunter', desc: 'Collect 25 ember shards', embers: 75 },
   { id: 'drain', name: 'Down the Drain', desc: 'Lure a shadow into a whirlpool', embers: 50 },
+  { id: 'bruteStun', name: 'The Bigger They Are', desc: 'Stun a brute with a second flare', embers: 60 },
   { id: 'architect', name: 'Architect', desc: 'Beat a level from the editor', embers: 50 },
   { id: 'shipowner', name: 'Shipowner', desc: 'Buy a new boat in the Boatyard', embers: 20 },
   { id: 'fleet', name: 'Admiral', desc: 'Own 10 boats', embers: 150 },

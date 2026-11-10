@@ -2,6 +2,7 @@
 //   #  building      .  water       B  boat start
 //   o  oil can       u  buoy        L  lighthouse
 //   c  shadow creature spawn
+//   q  wisp (a small, fast shadow)       g  brute (a big, slow shadow that takes two flares)
 //   w  whirlpool (pulls in the boat and shadows)
 //   e  ember shard (optional collectible worth Embers)
 
@@ -234,7 +235,7 @@ export function encodeLevel(map) {
 export function decodeLevel(code) {
   const text = atob(code.trim().replace(/-/g, '+').replace(/_/g, '/'));
   const map = text.split('/').map((row) => row.replace(/(\d+)(\D)/g, (_, n, ch) => ch.repeat(Number(n))));
-  const ok = /^[#.BouLcwe<>^v]+$/;
+  const ok = /^[#.BouLcqgwe<>^v]+$/;
   if (map.length < 4 || map.length > 40 || map.some((row) => !ok.test(row) || row.length > 60)) {
     throw new Error('That code is not a Lantern Drift level');
   }
@@ -325,6 +326,8 @@ export function parseLevel(def) {
       else if (ch === 'o') level.oils.push(p);
       else if (ch === 'u') level.buoys.push(p);
       else if (ch === 'c') level.creatures.push(p);
+      else if (ch === 'q') level.creatures.push({ ...p, kind: 'wisp' });
+      else if (ch === 'g') level.creatures.push({ ...p, kind: 'brute' });
       else if (ch === 'L') level.lighthouse = p;
       else if (ch === 'w') level.whirlpools.push(p);
       else if (ch === 'e') level.shards.push(p);

@@ -20,6 +20,13 @@ const LIGHTNING_COST = 12;
 const LUNGE_TIME = 0.9;      // seconds a lunge lasts
 const LUNGE_SPEED = 9;       // faster than the boat, so you can't just outrun it
 const LUNGE_RANGE = 6;       // how far outside the fear radius a shadow will start a lunge
+// Kinds of shadow. speed and lunge scale the level's shadow speed; steal scales stolen oil;
+// a brute needs two flares close together: the first only staggers it.
+export const CREATURE_KINDS = {
+  shadow: { speed: 1, lunge: 1, steal: 1, radius: SHADOW_RADIUS, scale: 1, tough: false },
+  wisp: { speed: 1.45, lunge: 1.15, steal: 0.5, radius: 0.4, scale: 0.65, tough: false },
+  brute: { speed: 0.7, lunge: 0.8, steal: 1.8, radius: 0.8, scale: 1.5, tough: true },
+};
 export const WHIRL_RADIUS = 3.4;  // how far a whirlpool's pull reaches
 const WHIRL_CORE = 0.8;      // caught in the middle: spat out (the boat loses oil, a shadow is stunned)
 const WHIRL_COST = 8;
@@ -43,7 +50,7 @@ export class Game {
     this.oils = L.oils.map((p) => ({ ...p, taken: false }));
     this.buoys = L.buoys.map((p) => ({ ...p, lit: false }));
     this.creatures = L.creatures.map((p, i) => ({
-      x: p.x, z: p.z, vx: 0, vz: 0, stun: 0, lunge: 0, cool: 3 + i * 1.3, seed: i,
+      x: p.x, z: p.z, vx: 0, vz: 0, stun: 0, lunge: 0, cool: 3 + i * 1.3, seed: i, kind: p.kind || 'shadow', stagger: 0,
     }));
     this.lighthouse = L.lighthouse;
     this.whirlpools = L.whirlpools.map((p) => ({ ...p, cool: 0 }));
@@ -205,12 +212,22 @@ export class Game {
     for (const c of this.creatures) {
       const d = dist(c.x, c.z, b.x, b.z);
       if (d < FLARE_RANGE * st.flareRange) {
-        stunned++;
         const ux = (c.x - b.x) / (d || 1), uz = (c.z - b.z) / (d || 1);
+        c.lunge = 0;
+        if ((CREATURE_KINDS[c.kind] || CREATURE_KINDS.shadow).tough && !(c.stagger > 0)) {
+          // A brute shrugs off the first flare: knocked back and briefly dazed, but ready for a second.
+          c.stagger = 4;
+          c.vx = ux * 6;
+          c.vz = uz * 6;
+          c.stun = Math.max(c.stun, 0.5);
+          continue;
+        }
+        stunned++;
+        if (c.kind === 'brute') this.events.push({ type: 'bruteStun', x: c.x, z: c.z });
+        c.stagger = 0;
         c.vx = ux * 10;
         c.vz = uz * 10;
         c.stun = 2.5 * st.stunMult;
-        c.lunge = 0;
       }
     }
     this.events.push({ type: 'flare', stunned });
@@ -485,7 +502,9 @@ export class Game {
       this.updateFlowField();
     }
     for (const c of this.creatures) {
+      const kind = CREATURE_KINDS[c.kind] || CREATURE_KINDS.shadow;
       c.stun = Math.max(0, c.stun - dt);
+      c.stagger = Math.max(0, (c.stagger || 0) - dt);
       c.cool -= dt;
       if (c.lunge > 0) c.lunge -= dt;
 
@@ -506,8 +525,8 @@ export class Game {
       } else {
         // Beyond stealth range a shadow hasn't noticed you: it only drifts about.
         const hunt = d < this.stats.stealth ? 2 : 0.4;
-        ax += way.x * this.def.creatureSpeed * hunt;
-        az += way.z * this.def.creatureSpeed * hunt;
+        ax += way.x * this.def.creatureSpeed * kind.speed * hunt;
+        az += way.z * this.def.creatureSpeed * kind.speed * hunt;
         if (c.cool <= 0 && sees && d < fear + LUNGE_RANGE) {
           c.lunge = LUNGE_TIME;
           c.cool = this.def.lungeCooldown + ((c.seed * 7.3 + this.time) % 2);
@@ -537,7 +556,7 @@ export class Game {
       const damp = Math.exp(-2.2 * dt);
       c.vx *= damp;
       c.vz *= damp;
-      const maxSpeed = c.lunge > 0 ? LUNGE_SPEED : c.stun > 0 ? 10 : this.def.creatureSpeed;
+      const maxSpeed = c.lunge > 0 ? LUNGE_SPEED * kind.lunge : c.stun > 0 ? 10 : this.def.creatureSpeed * kind.speed;
       const s = Math.hypot(c.vx, c.vz);
       if (s > maxSpeed) {
         c.vx *= maxSpeed / s;
@@ -546,10 +565,10 @@ export class Game {
       c.x = clamp(c.x + c.vx * dt, cell, (width - 1) * cell);
       c.z = clamp(c.z + c.vz * dt, cell, (height - 1) * cell);
       // Shadows can't pass through buildings any more: they slide along walls like the boat.
-      this.collideCircle(c, SHADOW_RADIUS, 1.0);
+      this.collideCircle(c, kind.radius, 1.0);
 
-      if (d < 1.1 && c.stun <= 0) {
-        this.oil -= HIT_COST * this.stats.hitMult;
+      if (d < 0.55 + kind.radius && c.stun <= 0) {
+        this.oil -= HIT_COST * kind.steal * this.stats.hitMult;
         c.stun = 2.5 * this.stats.stunMult;
         c.lunge = 0;
         c.vx = -ux * 9;

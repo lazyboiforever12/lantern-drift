@@ -174,6 +174,7 @@ WebGL2 is only used to talk to the GPU. Everything below is written in this repo
   its URL, so after an update browsers never mix old and new modules. A test fails if it's out of date.
 - Press F9 while running `node serve.mjs` to save a screenshot into `screenshots/`.
 - In the browser console, `lanternDrift.step(2)` runs two seconds of game time and `lanternDrift.game` is the current level.
+  These tools only exist on the local server (`node serve.mjs`) or when the address ends in `?dev`, not for normal players.
 
 ## How this was made (AI disclosure)
 Lantern Drift was designed and written mainly by **Claude Code** (Anthropic's AI coding agent), directed by me,

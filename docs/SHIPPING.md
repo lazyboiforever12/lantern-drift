@@ -15,7 +15,7 @@ git config --global user.email "12345678+your-github-username@users.noreply.gith
 ```
 
 ## 2. Save the work as a commit
-In `C:\Users\yasir\GameJams\mipmap-game`:
+In your project folder (the one with `index.html` in it):
 ```
 git add -A
 git commit -m "Lantern Drift: 5 levels, currents, bloom, particles, music, settings"

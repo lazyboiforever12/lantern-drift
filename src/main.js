@@ -1228,7 +1228,12 @@ async function saveScreenshot(dataUrl) {
 
 // Handy for debugging in the browser console: lanternDrift.game.oil = 100
 // lanternDrift.step(2) runs two seconds of game time at once (works even in a background tab).
-window.lanternDrift = {
+// Developer tools in the browser console (lanternDrift.step(2), lanternDrift.game.oil = 100, ...).
+// Only on the local dev server, or with ?dev in the address, so the public game doesn't hand
+// every player cheats. (Saves live in each player's own browser, so this was never a way to
+// change anything for anyone else.)
+const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) || new URLSearchParams(location.search).has('dev');
+if (DEV) window.lanternDrift = {
   get game() { return game; },
   get state() { return state; },
   startLevel,

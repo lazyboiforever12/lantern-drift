@@ -215,6 +215,9 @@ export class Sound {
         this.noise(0.9, { vol: 0.35, freq: 1800 });
         this.tone(300, 0.6, { type: 'triangle', vol: 0.15, slideTo: 900 });
         break;
+      case 'buoyOut':
+        this.tone(523, 0.5, { vol: 0.15, slideTo: 260 });
+        break;
       case 'noFlare':
         this.tone(150, 0.15, { type: 'square', vol: 0.08 });
         break;

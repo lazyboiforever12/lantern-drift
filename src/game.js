@@ -45,6 +45,14 @@ export class Game {
     return { x: this.lighthouse.x + Math.cos(a) * 9, z: this.lighthouse.z + Math.sin(a) * 9 };
   }
 
+  // 1 for a steady lit buoy. On fading-buoy levels it dims, then flickers, as its timer runs out.
+  buoyStrength(u) {
+    if (!u.lit) return 0;
+    if (!this.def.buoyTime || this.lighthouseActive) return 1;
+    const k = Math.min(1, 0.35 + u.timer / 10);
+    return u.timer < 4 ? k * (0.6 + 0.4 * Math.sin(this.time * 18)) : k;
+  }
+
   get buoysLit() {
     return this.buoys.filter((b) => b.lit).length;
   }
@@ -119,6 +127,18 @@ export class Game {
     this.updateBoat(dt, input);
     this.updatePickups();
     this.updateCreatures(dt);
+
+    // Fading buoys: until the lighthouse wakes, a lit buoy goes dark when its timer runs out.
+    if (this.def.buoyTime && !this.lighthouseActive) {
+      for (const u of this.buoys) {
+        if (!u.lit) continue;
+        u.timer -= dt;
+        if (u.timer <= 0) {
+          u.lit = false;
+          this.events.push({ type: 'buoyOut', x: u.x, z: u.z });
+        }
+      }
+    }
 
     this.oil -= this.def.drain * dt;
     if (this.oil <= 0) {
@@ -216,6 +236,7 @@ export class Game {
     for (const u of this.buoys) {
       if (!u.lit && dist(b.x, b.z, u.x, u.z) < 2.4) {
         u.lit = true;
+        u.timer = this.def.buoyTime || 0; // on some levels lit buoys burn out
         this.events.push({ type: 'buoy', x: u.x, z: u.z });
         if (this.buoysLit === this.buoys.length) {
           this.lighthouseActive = true;
@@ -311,7 +332,7 @@ export class Game {
     }];
     if (this.flareTime > 0) {
       const k = this.flareTime / FLARE_TIME;
-      list.push({ pos: [b.x, 4, b.z], color: [2.2 * k, 1.9 * k, 1.5 * k], radius: 24 - 6 * k });
+      list.push({ pos: [b.x, 4, b.z], color: [2.2 * k, 1.9 * k, 1.5 * k], radius: 24 - 6 * k, flare: true });
     }
     const lh = this.lighthouse;
     if (this.lighthouseActive) {
@@ -323,7 +344,10 @@ export class Game {
       list.push({ pos: [lh.x, 6.5, lh.z], color: [1.4 * pulse, 0.25 * pulse, 0.15 * pulse], radius: 6 });
     }
     for (const u of this.buoys) {
-      if (u.lit) list.push({ pos: [u.x, 1.6, u.z], color: [0.6, 1.7, 1.4], radius: 7 });
+      if (u.lit) {
+        const k = this.buoyStrength(u);
+        list.push({ pos: [u.x, 1.6, u.z], color: [0.6 * k, 1.7 * k, 1.4 * k], radius: 3 + 4 * k });
+      }
     }
     const oils = this.oils
       .filter((o) => !o.taken)

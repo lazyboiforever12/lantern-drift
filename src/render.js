@@ -62,7 +62,9 @@ export class Renderer {
     this.lastGame = null;
 
     // Optional extras. If post-processing can't start (old GPU or driver), draw straight to the screen.
-    this.settings = { bloom: true, shake: true, rain: true, reflections: true };
+    this.settings = { bloom: true, shake: true, rain: true, reflections: true, flashes: true };
+    // 0 = full quality. Raised automatically when frames are slow: 1 no reflections, 2 no bloom, 3 lower resolution.
+    this.autoLevel = 0;
     try {
       this.post = new PostProcess(gl);
     } catch (err) {
@@ -83,7 +85,8 @@ export class Renderer {
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    // autoLevel 3 also lowers the resolution for slow GPUs (see main.js quality scaling).
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * (this.autoLevel >= 3 ? 0.7 : 1);
     const w = Math.floor(this.canvas.clientWidth * dpr);
     const h = Math.floor(this.canvas.clientHeight * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -95,7 +98,7 @@ export class Renderer {
   }
 
   get postActive() {
-    return !!this.post && this.settings.bloom;
+    return !!this.post && this.settings.bloom && this.autoLevel < 2;
   }
 
   // Shake the camera a little (hits, lunges, bumps). Amount is in world units.
@@ -132,6 +135,9 @@ export class Renderer {
         break;
       case 'lunge':
         this.shake(0.08);
+        break;
+      case 'buoyOut':
+        P.burst(ev.x, 1.4, ev.z, { count: 16, speed: 1.5, up: 2, life: 1.0, color: [0.3, 0.45, 0.5], gravity: 0 });
         break;
       case 'bump':
         P.burst(b.x, 0.3, b.z, { count: 8, speed: 2, up: 2, life: 0.5, size: 0.08, color: [0.6, 0.75, 0.85] });
@@ -241,9 +247,10 @@ export class Renderer {
     gl.uniform3f(u.uMoonColor, 0.022, 0.028, 0.05);
 
     const lights = game.lights().slice(0, MAX_LIGHTS);
+    const calm = !this.settings.flashes; // reduced flashing: soften the flare's burst of light
     lights.forEach((l, i) => {
       this.lightPos.set(l.pos, i * 3);
-      this.lightColor.set(l.color, i * 3);
+      this.lightColor.set(calm && l.flare ? l.color.map((c) => c * 0.35) : l.color, i * 3);
       this.lightRadius[i] = l.radius;
     });
     gl.uniform1i(u.uLightCount, lights.length);
@@ -256,7 +263,7 @@ export class Renderer {
 
     // Pass 1: the reflection. Draw the scene mirrored in the water plane (y = 0) into a
     // half-resolution texture. Mirroring is just a scale of -1 on y before the camera.
-    const reflecting = this.settings.reflections;
+    const reflecting = this.settings.reflections && this.autoLevel < 1;
     if (reflecting) {
       const rt = this.reflectionTarget(Math.max(1, w >> 1), Math.max(1, h >> 1));
       // Unbind last frame's reflection first: a texture can't be read and drawn into at once.
@@ -330,7 +337,7 @@ export class Renderer {
     if (this.postActive) {
       this.post.end({
         time,
-        hit: Math.min(1, game.hitFlash / 0.4),
+        hit: this.settings.flashes ? Math.min(1, game.hitFlash / 0.4) : 0,
         danger: playing ? Math.max(0, Math.min(1, (30 - game.oil) / 30)) : 0,
         fade: this.fade,
         bloom: 1,
@@ -349,7 +356,7 @@ export class Renderer {
     game.buoys.forEach((bu, i) => {
       const bob = Math.sin(time * 2 + i) * 0.06;
       this.drawMesh(bu.lit ? m.buoyOn : m.buoyOff, model(bu.x, bob, bu.z, Math.sin(time + i) * 0.1), {
-        glow: bu.lit ? 2 : 0.35 + 0.25 * Math.sin(time * 3 + i),
+        glow: bu.lit ? 2 * game.buoyStrength(bu) : 0.35 + 0.25 * Math.sin(time * 3 + i),
       });
     });
     game.oils.forEach((o, i) => {

@@ -52,13 +52,15 @@ let lastClear = { time: 0, best: false };
 
 // ---------- Settings (saved separately from progress) ----------
 const SETTINGS_KEY = 'lanternDrift.settings.v1';
-const settings = { bloom: true, reflections: true, shake: true, rain: true, sound: 8, music: 6, fps: false };
+const settings = { bloom: true, reflections: true, shake: true, rain: true, flashes: true, autoQuality: true, sound: 8, music: 6, fps: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch { /* defaults */ }
 function applySettings() {
   renderer.settings.bloom = settings.bloom;
   renderer.settings.shake = settings.shake;
   renderer.settings.rain = settings.rain;
   renderer.settings.reflections = settings.reflections;
+  renderer.settings.flashes = settings.flashes;
+  if (!settings.autoQuality) renderer.autoLevel = 0;
   sound.setVolume('sound', settings.sound / 10);
   sound.setVolume('music', settings.music / 10);
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* not saved */ }
@@ -67,6 +69,8 @@ const SETTING_ROWS = [
   { key: 'bloom', label: 'Glow and colour effects', type: 'bool' },
   { key: 'reflections', label: 'Water reflections', type: 'bool' },
   { key: 'shake', label: 'Screen shake', type: 'bool' },
+  { key: 'flashes', label: 'Flashing effects', type: 'bool' },
+  { key: 'autoQuality', label: 'Auto quality (if slow)', type: 'bool' },
   { key: 'rain', label: 'Rain', type: 'bool' },
   { key: 'sound', label: 'Sound volume', type: 'level' },
   { key: 'music', label: 'Music volume', type: 'level' },
@@ -76,6 +80,7 @@ const SETTING_ROWS = [
 let settingsRow = 0;
 let settingsFrom = 'title';
 function changeSetting(row, dir) {
+  renderer.autoLevel = 0; // the player chose: start auto quality over from full
   if (row.type === 'bool') settings[row.key] = !settings[row.key];
   else if (row.type === 'level') settings[row.key] = Math.max(0, Math.min(10, settings[row.key] + dir));
   applySettings();
@@ -156,7 +161,7 @@ function updateHud(dt) {
     fpsFrames = 0;
     fpsTime = 0;
   }
-  hud.flash.style.opacity = renderer.postActive ? 0 : game.hitFlash * 1.5; // the post pass draws its own hit effect
+  hud.flash.style.opacity = renderer.postActive || !settings.flashes ? 0 : game.hitFlash * 1.5; // the post pass draws its own hit effect
 }
 
 function say(text, seconds = 2.5) {
@@ -438,13 +443,32 @@ function handleEvent(ev) {
     case 'allBuoys': say('The lighthouse is awake! Sail to it.', 4); break;
     case 'hit': say('A shadow stole some oil!', 1.5); break;
     case 'noFlare': say('Not enough oil for a flare', 1.5); break;
+    case 'buoyOut': say(`A buoy burned out! (${game.buoysLit} / ${game.buoys.length} lit)`, 2); break;
+  }
+}
+
+// ---------- Automatic quality ----------
+// If frames stay slow (under ~45 fps) for a few seconds while playing, step the graphics down one
+// level at a time: reflections, then bloom, then resolution. Turned off by the "Auto quality" setting.
+let slowTime = 0, avgFrame = 1 / 60;
+function watchFrameRate(raw) {
+  if (state !== 'playing' || !settings.autoQuality || raw > 0.25) return; // ignore tab switches
+  avgFrame += (raw - avgFrame) * 0.05;
+  slowTime = avgFrame > 1 / 45 ? slowTime + raw : Math.max(0, slowTime - raw);
+  if (slowTime > 3 && renderer.autoLevel < 3) {
+    renderer.autoLevel++;
+    slowTime = 0;
+    avgFrame = 1 / 60;
+    say('Lowered graphics quality for smoother play (see Settings)', 3);
   }
 }
 
 // ---------- Main loop ----------
 function frame(now) {
-  const dt = Math.min((now - last) / 1000, 0.05);
+  const raw = (now - last) / 1000;
+  const dt = Math.min(raw, 0.05);
   last = now;
+  watchFrameRate(raw);
   tick(dt);
   requestAnimationFrame(frame);
 }
@@ -513,6 +537,7 @@ window.lanternDrift = {
   get game() { return game; },
   get state() { return state; },
   startLevel,
+  get renderer() { return renderer; },
   save,
   step(seconds) {
     for (let t = 0; t < seconds; t += 1 / 60) tick(1 / 60);

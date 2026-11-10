@@ -42,3 +42,10 @@ How to post: Mipmap dashboard → Snapshots box → upload the image, choose you
 - Procedural textures (brick, roof tiles, wood, stone) in a WebGL2 texture array with mipmaps and anisotropic filtering, using triplanar mapping (no UVs needed).
 - Planar water reflections: the scene is rendered mirrored into a half-res texture, and the water samples it with ripple distortion and Fresnel.
 - Published to GitHub Pages; Repo and Demo links added on Mipmap; Snapshot 1 posted.
+
+## 10 Nov 2026 (early hours)
+- README now has an AI disclosure section.
+- New level, Ember Bay, with a new mechanic: lit buoys burn out after 40 s, so you must light them all in one well-planned run. It's level 5, and Lighthouse Point stays the finale. Tuned with the play-test bots (about 53% for the sloppy bot).
+- Automatic quality scaling: if frames stay below about 45 fps, it drops reflections, then bloom, then resolution.
+- Accessibility: a "Flashing effects" switch removes the hit flash and colour split and softens the flare light.
+- 13 automated rule tests (`node --test tests/game.test.mjs`); `package.json` scripts for start / test / check / playtest.

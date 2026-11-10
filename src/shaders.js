@@ -269,7 +269,7 @@ void main() {
 
   vec3 lit = uAmbient * base * ao;
   lit += uMoonColor * base * max(dot(n, uMoonDir), 0.0) * ao;
-  lit += uMoonColor * foam * 2.5; // foam catches the moonlight even far from any lamp
+  lit += uMoonColor * foam * 0.35; // a faint moonlit edge only: brighter made glowing outlines in the dark
   if (water) {
     vec3 H = normalize(uMoonDir + V);
     lit += uMoonColor * 2.0 * pow(max(dot(n, H), 0.0), 200.0);

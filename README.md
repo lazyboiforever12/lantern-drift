@@ -5,6 +5,10 @@ Collect oil, light the buoys, and reach the lighthouse before your lantern goes 
 
 Made for [Hack Club Mipmap](https://mipmap.hackclub.com/) (Tier Romeo: raw WebGL2, no engine).
 
+**Play free in your browser:** [GitHub Pages](https://lazyboiforever12.github.io/lantern-drift/) · [itch.io](https://lazyboi-forever.itch.io/lantern-drift) · [Newgrounds](https://www.newgrounds.com/portal/view/1061668)
+· Patch notes: [CHANGELOG.md](CHANGELOG.md) · Follow updates on X: [@Lazyboi_forever](https://x.com/Lazyboi_forever)
+· Found a bug or have an idea? [Open an issue](https://github.com/lazyboiforever12/lantern-drift/issues).
+
 ![Photo mode in The Storm: the lantern boat between lit houses, piers and lamp posts, reflected in the flood](docs/snapshot-photomode.png)
 
 ## Controls

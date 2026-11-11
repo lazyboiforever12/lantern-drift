@@ -31,13 +31,15 @@ async function saveScreenshot(req, res) {
     chunks.push(chunk);
   }
   const png = Buffer.concat(chunks);
-  if (png.subarray(1, 4).toString() !== 'PNG') {
-    res.writeHead(400).end('Not a PNG');
+  // MP4 gameplay clips (recorded in the browser for store pages) are saved too.
+  const isMp4 = png.subarray(4, 8).toString() === 'ftyp';
+  if (png.subarray(1, 4).toString() !== 'PNG' && !isMp4) {
+    res.writeHead(400).end('Not a PNG or MP4');
     return;
   }
   const dir = join(root, 'screenshots');
   await mkdir(dir, { recursive: true });
-  const name = `lantern-drift-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+  const name = `lantern-drift-${new Date().toISOString().replace(/[:.]/g, '-')}.${isMp4 ? 'mp4' : 'png'}`;
   await writeFile(join(dir, name), png);
   console.log(`Saved screenshots/${name}`);
   res.writeHead(200, { 'Content-Type': 'text/plain' }).end(`screenshots/${name}`);

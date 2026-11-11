@@ -29,6 +29,9 @@ export const ACHIEVEMENTS = [
   { id: 'painter', name: 'Fresh Coat', desc: 'Get a new paint colour', embers: 15 },
   { id: 'tinkerer', name: 'Tinkerer', desc: 'Max out any upgrade', embers: 60 },
   { id: 'nightOwl', name: 'Night Owl', desc: 'Sail for 30 minutes in total', embers: 40 },
+  { id: 'floodgates', name: 'Lock Keeper', desc: 'Sink a set of floodgates', embers: 30 },
+  { id: 'eclipse', name: 'Blood Moon', desc: 'Sail through a whole eclipse', embers: 40 },
+  { id: 'keeper', name: 'The Last Keeper', desc: "Finish act II and bring the keeper's lantern home", embers: 200 },
 ];
 
 export class Achievements {

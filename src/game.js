@@ -70,7 +70,40 @@ export class Game {
     this.strike = null;                   // { x, z, warn } while a strike is coming
     this.strikeTimer = this.storm ? 4 : 0;
     this.lightningFlash = 0;
+    // Floodgates ('d' cells): solid walls until enough buoys are lit, then they sink for good.
+    this.gates = L.gates;
+    this.gatesOpen = false;
+    this.gatesOpenedAt = 0;
+    this.gateAt = Math.min(this.buoys.length, def.gateAt || Math.ceil(this.buoys.length / 2));
+    // Eclipse levels: every so often the moon goes dark. The lantern shrinks and shadows hurry.
+    this.eclipseDef = def.eclipse || null;
+    this.eclipse = 0;          // 0 = normal night, 1 = full eclipse (eased in and out)
+    this.eclipsePhase = 'off'; // off | warn | dark
     this.events = [];
+  }
+
+  // Where we are in the eclipse cycle: a quiet spell, a short warning, then darkness.
+  updateEclipse(dt) {
+    const { every, length } = this.eclipseDef;
+    const t = (this.time + every * 0.35) % every; // the first eclipse comes a little way into the level
+    const warnAt = every - length - 2.5;
+    const phase = t >= every - length ? 'dark' : t >= warnAt ? 'warn' : 'off';
+    if (phase !== this.eclipsePhase) {
+      if (phase === 'warn') this.events.push({ type: 'eclipseWarn' });
+      if (phase === 'off' && this.eclipsePhase === 'dark') this.events.push({ type: 'eclipseEnd' });
+      this.eclipsePhase = phase;
+    }
+    const target = phase === 'dark' ? 1 : 0;
+    this.eclipse += (target - this.eclipse) * Math.min(1, dt * 1.6);
+  }
+
+  // Sink the floodgates (called once enough buoys are lit).
+  openGates() {
+    if (this.gatesOpen || !this.gates.length) return;
+    this.gatesOpen = true;
+    this.gatesOpenedAt = this.time;
+    this.flow = null; // shadows re-plan their routes through the new gaps
+    this.events.push({ type: 'gates' });
   }
 
   // Where the awake lighthouse's sweeping beam touches the water.
@@ -98,7 +131,7 @@ export class Game {
 
   // How far the lantern reaches. It shrinks as the oil runs low.
   get lanternRadius() {
-    return (4 + 8 * (this.oil / this.tank)) * this.stats.lantern;
+    return (4 + 8 * (this.oil / this.tank)) * this.stats.lantern * (1 - 0.3 * this.eclipse);
   }
 
   // Creatures won't come closer than this unless they lunge.
@@ -184,7 +217,7 @@ export class Game {
     const g = this.level.grid;
     if (row < 0 || row >= g.length || col < 0 || col >= g[row].length) return true;
     const ch = g[row][col];
-    return ch === '#' || ch === 'L';
+    return ch === '#' || ch === 'L' || (ch === 'd' && !this.gatesOpen);
   }
 
   // A short burst of speed for a little oil: good for escaping a lunge or crossing a current.
@@ -237,6 +270,7 @@ export class Game {
     if (this.result) return;
     this.time += dt;
     if (this.storm) this.updateStorm(dt);
+    if (this.eclipseDef) this.updateEclipse(dt);
     this.flareTime = Math.max(0, this.flareTime - dt);
     this.flareCooldown = Math.max(0, this.flareCooldown - dt);
     this.dashTime = Math.max(0, this.dashTime - dt);
@@ -484,6 +518,7 @@ export class Game {
         u.lit = true;
         u.timer = this.def.buoyTime || 0; // on some levels lit buoys burn out
         this.events.push({ type: 'buoy', x: u.x, z: u.z });
+        if (this.gates.length && this.buoysLit >= this.gateAt) this.openGates();
         if (this.buoysLit === this.buoys.length) {
           this.lighthouseActive = true;
           this.events.push({ type: 'allBuoys' });
@@ -524,7 +559,7 @@ export class Game {
         ax -= ux * 8; az -= uz * 8;
       } else {
         // Beyond stealth range a shadow hasn't noticed you: it only drifts about.
-        const hunt = d < this.stats.stealth ? 2 : 0.4;
+        const hunt = (d < this.stats.stealth ? 2 : 0.4) * (1 + 0.25 * this.eclipse); // bolder in the dark
         ax += way.x * this.def.creatureSpeed * kind.speed * hunt;
         az += way.z * this.def.creatureSpeed * kind.speed * hunt;
         if (c.cool <= 0 && sees && d < fear + LUNGE_RANGE) {
@@ -556,7 +591,7 @@ export class Game {
       const damp = Math.exp(-2.2 * dt);
       c.vx *= damp;
       c.vz *= damp;
-      const maxSpeed = c.lunge > 0 ? LUNGE_SPEED * kind.lunge : c.stun > 0 ? 10 : this.def.creatureSpeed * kind.speed;
+      const maxSpeed = c.lunge > 0 ? LUNGE_SPEED * kind.lunge : c.stun > 0 ? 10 : this.def.creatureSpeed * kind.speed * (1 + 0.2 * this.eclipse);
       const s = Math.hypot(c.vx, c.vz);
       if (s > maxSpeed) {
         c.vx *= maxSpeed / s;

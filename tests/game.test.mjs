@@ -490,6 +490,84 @@ test('a brute shrugs off one flare but is stunned by a second; wisps steal less'
 // ---------- Publishing ----------
 import { stampedHtml } from '../tools/stamp.mjs';
 
+// ---------- Act two: floodgates, eclipses, 18 levels ----------
+import { checkLevel as check2, encodeShare as enc2, decodeShare as dec2, customLevel as custom2, TWISTS as TW2 } from '../src/levels.js';
+import { generateVoyage as gen2, dailyVoyage as daily2 } from '../src/voyages.js';
+
+const gated = () => ({
+  name: 'Locks', drain: 0, creatureSpeed: 3, lungeCooldown: 3,
+  map: [
+    '##############',
+    '#B...u..#....#',
+    '#.......d..u.#',
+    '#..u....d....#',
+    '#.......#...L#',
+    '##############',
+  ],
+});
+
+test('floodgates block the way until enough buoys are lit, then sink for good', () => {
+  const g = new Game(gated(), 0);
+  assert.equal(g.gateAt, 2);
+  const gate = g.gates[0];
+  assert.equal(g.isSolid(gate.col, gate.row), true);
+  g.boat.x = g.buoys[0].x; g.boat.z = g.buoys[0].z; g.update(DT, IDLE);
+  assert.equal(g.gatesOpen, false, 'one buoy is not enough');
+  g.boat.x = g.buoys[2].x; g.boat.z = g.buoys[2].z; g.update(DT, IDLE);
+  assert.equal(g.gatesOpen, true);
+  assert.equal(g.isSolid(gate.col, gate.row), false);
+  assert.equal(g.events.filter((e) => e.type === 'gates').length, 1);
+});
+
+test('the checker rejects floodgates that hide too many buoys', () => {
+  assert.deepEqual(check2(gated()), []);
+  const bad = gated();
+  bad.map[1] = '#B......#..u.#';
+  bad.map[3] = '#.......d..u.#';
+  assert.ok(check2(bad).some((p) => p.includes('Floodgates')));
+});
+
+test('an eclipse warns first, shrinks the lantern, then lifts', () => {
+  const def = { ...gated(), map: gated().map.map((r) => r.replace(/d/g, '.')), eclipse: { every: 20, length: 6 } };
+  const g = new Game(def, 0);
+  const full = g.lanternRadius;
+  const seen = new Set();
+  for (let t = 0; t < 22; t += DT) { g.update(DT, IDLE); for (const e of g.events) seen.add(e.type); g.events.length = 0; if (g.eclipse > 0.95) break; }
+  assert.ok(seen.has('eclipseWarn'));
+  assert.ok(g.lanternRadius < full * 0.75, 'the light shrinks in the dark');
+  for (let t = 0; t < 10; t += DT) { g.update(DT, IDLE); for (const e of g.events) seen.add(e.type); g.events.length = 0; }
+  assert.ok(seen.has('eclipseEnd'));
+});
+
+test('18 story levels, all fair, and act two uses the new tricks', () => {
+  assert.equal(LEVELS.length, 18);
+  for (const def of LEVELS) assert.deepEqual(check2(def), [], def.name);
+  assert.ok(LEVELS.slice(9).some((d) => d.map.join('').includes('d')));
+  assert.ok(LEVELS.slice(9).some((d) => d.eclipse));
+  assert.ok(LEVELS[8].story, 'act one ends on a twist');
+});
+
+test('floodgates and eclipses travel in share codes and appear in generated voyages', () => {
+  const eclipse = TW2.findIndex((t) => t.eclipse);
+  const code = enc2({ map: gated().map, difficulty: 1, twist: eclipse, weather: 3, name: 'Locks' });
+  const back = dec2(code);
+  assert.deepEqual(back.map, gated().map);
+  assert.ok(custom2(back).eclipse);
+  for (let s = 1; s <= 25; s++) {
+    const v = gen2(s * 101, 6, 'gates');
+    assert.deepEqual(check2(v), []);
+    assert.ok(v.map.join('').includes('d'));
+    assert.ok(gen2(s * 101, 6, 'eclipse').eclipse);
+  }
+  // Today's Daily Voyage must not change under players' feet when new twists were added.
+  assert.equal(daily2('2026-11-11').name, 'Daily: Amber Arcade');
+});
+
+test('share names cannot carry HTML', () => {
+  const code = enc2({ map: gated().map, name: '<img src=x onerror=alert(1)>' });
+  assert.ok(!/[<>]/.test(dec2(code).name));
+});
+
 test('index.html is stamped with the current file hashes (run: node tools/stamp.mjs)', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.equal(html, stampedHtml());

@@ -90,6 +90,9 @@ Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and shar
 - Your progress and best time for each level are saved in the browser.
 
 ## Levels
+18 story levels in two acts. Each act-two level ends with a piece of the story.
+
+**Act I: The Drowned Town**
 1. The Flooded Market
 2. Lantern Row
 3. The Old Harbour
@@ -98,7 +101,20 @@ Press **E** on the title screen. Build a 32 x 16 flooded town, test it, and shar
 6. The Storm (wind gusts push the boat; lightning stuns shadows, but stay out from under it)
 7. The Frozen Quay (snow, wisps, and a brute in the square)
 8. Whirlpool Reach (whirlpools, currents and wisps)
-9. Lighthouse Point (the finale, snowed in), followed by an ending with fireworks, credits and your full-run time
+9. Lighthouse Point (snowed in). Waking it reveals a green light far out at sea...
+
+**Act II: The Green Light**
+10. The Breakwater (floodgates: walls that sink once you light half the buoys)
+11. Drowned Gardens (eclipses: the moon goes dark, your light shrinks and shadows hurry)
+12. Bellwater Channels (canal locks, one current down and one up)
+13. The Sunken Fair (rings of stalls around a whirlpool, full of wisps)
+14. Saltglass Narrows (a zig-zag through narrow streets, in a storm)
+15. Clocktower Flats (the lighthouse is locked in the clock square until every fading buoy burns at once)
+16. Isle of Echoes (open sea, rocky isles, two brutes and long eclipses)
+17. The Green Light (a spiral current winds in to a drowned lighthouse)
+18. The Last Keeper (the finale: three harbours behind floodgates), followed by the ending, credits and your full-run time
+
+Floodgates and eclipses also turn up in Endless and the Daily Voyage, and the level editor has a Floodgate tool and an Eclipse twist.
 
 ## Run it
 Needs [Node.js](https://nodejs.org/) (no packages to install):

@@ -26,6 +26,7 @@ const TOOLS = [
   { ch: '^', label: 'Current ↑', key: '-', tip: 'Water that pushes the boat up' },
   { ch: 'w', label: 'Whirlpool', key: '=', tip: 'Pulls in the boat and shadows. The middle costs oil, but stuns shadows' },
   { ch: 'e', label: 'Ember shard', key: '[', tip: 'Optional treasure worth Embers' },
+  { ch: 'd', label: 'Floodgate', key: ';', tip: 'A wall that sinks once half the buoys are lit. Hide buoys, oil or the lighthouse behind it' },
 ];
 const MODES = [
   { id: 'brush', label: '✎ Brush', key: 'KeyP', tip: 'Paint cells as you drag (P)' },
@@ -38,6 +39,7 @@ const GUIDE = [
   'Paint <b>buildings</b> to make streets. The outer wall must stay closed.',
   'Place one <b>boat start</b> and one <b>lighthouse</b> (the goal), far apart.',
   'Add <b>buoys</b>. The player lights them all to wake the lighthouse.',
+  'Try <b>floodgates</b>: walls that sink when half the buoys are lit.',
   'Add <b>oil cans</b> so the lantern lasts, and some <b>shadows</b> for danger.',
   'Optional: <b>currents</b>, a difficulty and a twist (storm or burning-out buoys).',
   'When the check says <b>Ready</b>, press <b>Play</b> to test it, then <b>Share</b> the link.',
@@ -125,7 +127,7 @@ export function createEditor({ onPlay, onClose }) {
   const nameEl = $('.name'), diffEl = $('.difficulty'), twistEl = $('.twist'), weatherEl = $('.weather');
 
   function cls(ch) {
-    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', q: 'wisp', g: 'brute', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard' }[ch];
+    return { '.': 'water', '#': 'wall', u: 'buoy', o: 'oil', c: 'shadow', q: 'wisp', g: 'brute', B: 'boat', L: 'light', '>': 'cur', '<': 'cur', '^': 'cur', v: 'cur', w: 'whirl', e: 'shard', d: 'gate' }[ch];
   }
   const ARROWS = { '>': '→', '<': '←', '^': '↑', v: '↓' };
 
@@ -405,7 +407,7 @@ export function createEditor({ onPlay, onClose }) {
       if (code === 'KeyM') { mirror = !mirror; draw(); return true; }
       const m = MODES.find((x) => x.key === code);
       if (m) { mode = m.id; draw(); return true; }
-      const KEY_CODES = { '-': 'Minus', '=': 'Equal', '[': 'BracketLeft', ']': 'BracketRight', '#': 'Backslash' };
+      const KEY_CODES = { '-': 'Minus', '=': 'Equal', '[': 'BracketLeft', ']': 'BracketRight', '#': 'Backslash', ';': 'Semicolon' };
       const t = TOOLS.find((x) => code === (KEY_CODES[x.key] || `Digit${x.key}`));
       if (t) { tool = t.ch; draw(); return true; }
       return false;

@@ -43,7 +43,8 @@ export function voyageDifficulty(depth) {
   };
 }
 
-// Builds one voyage. twist picks an extra rule: 'none', 'fading' (buoys burn out), 'storm' or 'currents'.
+// Builds one voyage. twist picks an extra rule: 'none', 'fading' (buoys burn out), 'storm', 'currents',
+// 'gates' (a wall with floodgates splits the map) or 'eclipse' (the moon goes dark now and then).
 // size: optional { width, height } to force a map size (the level editor's Random button uses 32 x 16).
 export function generateVoyage(seed, depth, twist = autoTwist(depth), size = null) {
   // Each failed attempt tries a new seed with fewer buildings; the last attempt is open water,
@@ -59,6 +60,8 @@ export function generateVoyage(seed, depth, twist = autoTwist(depth), size = nul
 function autoTwist(depth) {
   if (depth >= 5 && depth % 5 === 4) return 'storm';
   if (depth >= 3 && depth % 4 === 3) return 'fading';
+  if (depth >= 8 && depth % 6 === 2) return 'gates';
+  if (depth >= 5 && depth % 7 === 5) return 'eclipse';
   if (depth >= 2 && depth % 3 === 2) return 'currents';
   return 'none';
 }
@@ -97,6 +100,19 @@ function buildVoyage(seed, depth, twist, density, size) {
     }
   }
 
+  // Floodgates: a wall of houses down the middle with two double gates in it. Half the buoys go
+  // on the boat's side, so the gates can always be opened.
+  let wallCol = 0;
+  if (twist === 'gates') {
+    wallCol = int(Math.floor(W * 0.4), Math.floor(W * 0.55));
+    for (let r = 1; r < H - 1; r++) g[r][wallCol] = '#';
+    const top = int(2, Math.floor(H / 2) - 2), bottom = int(Math.floor(H / 2) + 1, H - 4);
+    for (const r of [top, top + 1, bottom, bottom + 1]) {
+      g[r][wallCol] = 'd';
+      for (const dc of [-1, 1]) if (g[r][wallCol + dc] === '#') g[r][wallCol + dc] = '.'; // keep the way clear
+    }
+  }
+
   // The boat starts in the top-left corner, in a clear patch of water.
   for (let r = 1; r <= 3; r++) for (let c = 1; c <= 4; c++) g[r][c] = '.';
   g[1][1] = 'B';
@@ -119,7 +135,13 @@ function buildVoyage(seed, depth, twist, density, size) {
   // The lighthouse goes in the far half of the map.
   place('L', 1, W * 0.45, 1, (c) => c > W * 0.6);
   const diff = voyageDifficulty(depth);
-  place('u', diff.buoys, 6, 5);
+  if (wallCol) {
+    const near = Math.ceil(diff.buoys / 2);
+    place('u', near, 6, 5, (c) => c < wallCol);
+    place('u', diff.buoys - near, 6, 5, (c) => c > wallCol);
+  } else {
+    place('u', diff.buoys, 6, 5);
+  }
   place('o', 4 + Math.floor((W * H) / 160), 3, 3);
   // New kinds of shadow further out: quick wisps from voyage 5, a brute from voyage 7. They take
   // the place of ordinary shadows, so the number of shadows stays the same.
@@ -153,6 +175,12 @@ function buildVoyage(seed, depth, twist, density, size) {
     def.tip = 'A storm rolls in. Lure shadows under the lightning.';
   } else if (twist === 'currents') {
     def.tip = 'Strong currents here. Ride them where you can.';
+  } else if (twist === 'gates') {
+    def.tip = 'Floodgates split this voyage. Light half the buoys to sink them.';
+  } else if (twist === 'eclipse') {
+    def.eclipse = { every: 26, length: 7 };
+    def.weather = 'clear';
+    def.tip = 'Eclipses tonight. When the moon goes dark, stay near a lit buoy.';
   }
   return def;
 }
@@ -160,7 +188,9 @@ function buildVoyage(seed, depth, twist, density, size) {
 // The Daily Voyage: one seed per calendar day, medium difficulty, with a twist that rotates.
 export function dailyVoyage(dateKey = todayKey()) {
   const seed = hashString(`lantern-drift-daily-${dateKey}`);
-  const twist = ['none', 'currents', 'fading', 'storm'][seed % 4];
+  // Floodgates and eclipses joined the rotation on 12 Nov 2026 (earlier days keep their old maps).
+  const twists = dateKey >= '2026-11-12' ? ['none', 'currents', 'fading', 'storm', 'gates', 'eclipse'] : ['none', 'currents', 'fading', 'storm'];
+  const twist = twists[seed % twists.length];
   const def = generateVoyage(seed, 4, twist);
   def.name = `Daily: ${def.name.replace(/^The /, '')}`;
   def.daily = dateKey;

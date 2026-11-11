@@ -2,6 +2,28 @@
 
 Patch notes for Lantern Drift. Play it at https://lazyboiforever12.github.io/lantern-drift/ or on https://lazyboi-forever.itch.io/lantern-drift
 
+## 1.1 (12 November 2026): Act II, The Green Light
+
+### New
+- The story doubles to 18 levels. Act II (levels 10 to 18) follows a mysterious green light out to sea, with a story beat after every level and a new ending.
+- Floodgates: walls that sink once you light half the buoys, opening new routes mid-level. In story levels, Endless, the Daily Voyage and the level editor (new Floodgate tool).
+- Eclipses: every so often the moon turns blood red and goes dark. Your lantern shrinks and shadows get bolder until it passes. In story levels, Endless, the Daily Voyage and the editor (new Eclipse twist).
+- The level list is split into two acts. Shift + 1 to 9 picks act II levels.
+- Three new achievements: Lock Keeper, Blood Moon and The Last Keeper.
+- Share previews: links to the game now show a picture and description on Discord, X and other apps.
+
+### Fixed
+- The game now pauses and goes quiet when you switch tabs or minimise the window.
+- If the graphics driver restarts (laptops can do this after sleep), the game reloads itself instead of showing a black screen. Progress is kept.
+- Achievement pop-ups no longer cover the timer and buoy counter.
+- Long tips no longer run underneath the minimap.
+- The bot that sails the title-screen demo could get stuck against a lighthouse.
+- Endless: floodgate voyages start at voyage 9, so they don't pile onto the first brute.
+- Level names in share links can no longer contain HTML.
+- Faster loading: the browser now downloads all game files at once.
+
+Saves carry over: if you had beaten Lighthouse Point, act II is already unlocked.
+
 ## 1.0 (November 2026)
 
 ### New

@@ -59,6 +59,14 @@ if ((save.version || 1) < 2) {
   save.version = 2;
   writeSave();
 }
+// Save version 3: the story grew from 9 to 18 levels. Anyone who beat Lighthouse Point carries on
+// into act two, and the old 9-level full-run record is kept apart from the new 18-level one.
+if (save.version < 3) {
+  if (save.best[8] !== undefined) save.unlocked = Math.max(save.unlocked, 10);
+  if (save.bestRun) { save.bestRunAct1 = save.bestRun; delete save.bestRun; }
+  save.version = 3;
+  writeSave();
+}
 // The Boatyard: Embers, owned boats, upgrades and paints live inside the save.
 const yard = (save.boatyard = Object.assign(defaultBoatyard(), save.boatyard || {}));
 if (!yard.boats[yard.equipped]) yard.equipped = 'skiff';
@@ -340,8 +348,9 @@ const SCREENS = {
     <p class="embers-line" data-action="shop">\u2726 ${yard.embers.toLocaleString()} Embers \u00b7 <b>${boatById(yard.equipped).name}</b> \u00b7 <u>B Boatyard</u></p>
     <p class="small"><span data-action="awards">A achievements ${awards.count}/${ACHIEVEMENTS.length}</span> \u00b7 <span data-action="editor">E level editor</span> \u00b7 <span data-action="settings">O settings</span> \u00b7 M mute</p>`,
   levelClear: () => `
-    <h1>Harbour reached</h1>
+    <h1>${levelIndex === 8 ? 'Act I complete' : 'Harbour reached'}</h1>
     <p class="sub">${game.def.name} is safe. Oil left: ${Math.round(game.oil)}</p>
+    ${game.def.story ? `<p class="story">${game.def.story}</p>` : ''}
     <p class="sub">Time ${formatTime(lastClear.time)} · ${lastClear.best ? '<b class="best">New best!</b>' : `Best ${formatTime(save.best[levelIndex])}`}</p>
     ${emberLine()}
     <p class="go">Press Enter for level ${levelIndex + 2}</p>
@@ -359,8 +368,8 @@ const SCREENS = {
     <p class="go">Press Enter to go back to the editor</p>
     <p class="small">Share it from the editor with "Share code"</p>`,
   won: () => `
-    <h1>The town is lit</h1>
-    <p class="sub">Every lighthouse is shining again. Thanks for playing!</p>
+    <h1>Both lights burn</h1>
+    <p class="sub">You brought the old keeper's lantern home. The green light is gold again, and every lighthouse shines. Thanks for playing!</p>
     <p class="sub">Last harbour in ${formatTime(lastClear.time)}${lastClear.best ? ' · <b class="best">New best!</b>' : ''}</p>
     ${emberLine()}
     ${run.valid ? `<p class="sub">Full run: <b>${formatTime(run.time)}</b>${run.best ? ' · <b class="best">New best run!</b>' : save.bestRun ? ` · best ${formatTime(save.bestRun)}` : ''}</p>` : ''}
@@ -432,17 +441,26 @@ const SCREENS = {
 };
 
 // Level select on the title screen, once a level beyond the first is unlocked.
+// The story is told in two acts of nine levels. Act two stays a mystery until act one is beaten.
+const ACTS = [{ name: 'Act I · The Drowned Town', from: 0 }, { name: 'Act II · The Green Light', from: 9 }];
 function levelList() {
   if (save.unlocked < 2) return '';
-  const items = LEVELS.map((def, i) => {
+  const item = (def, i) => {
     const locked = i >= save.unlocked;
     const best = save.best[i] !== undefined ? ` · best ${formatTime(save.best[i])}` : '';
     const total = def.map.join('').split('e').length - 1;
     const found = (save.shards && save.shards[i]) || 0;
     const shards = total && save.best[i] !== undefined ? ` <span class="${found === total ? 'all' : ''}">✦ ${found}/${total}</span>` : '';
     return `<li class="${locked ? 'locked' : ''}" data-level="${i}"><b>${i + 1}</b> ${locked ? '???' : def.name + best + shards}</li>`;
+  };
+  const acts = ACTS.map((act, a) => {
+    const to = a + 1 < ACTS.length ? ACTS[a + 1].from : LEVELS.length;
+    const items = LEVELS.slice(act.from, to).map((def, k) => item(def, act.from + k)).join('');
+    const hidden = save.unlocked <= act.from;
+    return `<div class="act${hidden ? ' sealed' : ''}"><p class="act-name">${hidden ? `${act.name.split(' · ')[0]} · ???` : act.name}</p><ol class="levels">${items}</ol></div>`;
   }).join('');
-  return `<p class="pick">Or press a number to pick a level</p><ol class="levels">${items}</ol>`;
+  const keys = save.unlocked > 9 ? 'press 1–9, or Shift + 1–9 for act II' : 'press a number';
+  return `<p class="pick"><span class="key-hint">Or ${keys} to pick a level</span><span class="tap-hint">Or tap a level to play it</span></p><div class="acts">${acts}</div>`;
 }
 
 function showScreen(name) {
@@ -730,14 +748,33 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
-addEventListener('blur', () => {
+function pauseForFocusLoss() {
   keys.clear();
   touch.clear();
   if (state === 'playing') {
     state = 'paused';
     showScreen('paused');
   }
+}
+addEventListener('blur', pauseForFocusLoss);
+// Switching tabs or minimising: pause the game and silence the sound until the player comes back
+// (game portals test for this). The audio wakes up again on the next key press or tap.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    pauseForFocusLoss();
+    sound.suspend();
+  } else {
+    sound.resumeIfUnlocked();
+  }
 });
+// If the graphics driver resets (laptops can do this after sleep), WebGL loses everything it made.
+// Ask the browser to restore the context, then reload: progress is in localStorage, so nothing is lost.
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  screenEl.innerHTML = '<h1>Lantern Drift</h1><p>The graphics driver restarted. Reloading… (if nothing happens, refresh the page; your progress is saved)</p>';
+  screenEl.classList.remove('hidden');
+});
+canvas.addEventListener('webglcontextrestored', () => location.reload());
 
 function onPress(code, e) {
   const go = code === 'Enter' || code === 'Space';
@@ -799,7 +836,8 @@ function onPress(code, e) {
       break;
     }
     case 'title': {
-      const n = code.startsWith('Digit') ? Number(code.slice(5)) - 1 : -1;
+      let n = code.startsWith('Digit') && code !== 'Digit0' ? Number(code.slice(5)) - 1 : -1;
+      if (n >= 0 && e && e.shiftKey) n += 9; // Shift + 1-9: act two
       if (n >= 0 && n < save.unlocked) startLevel(n);
       else if (go) startLevel(0);
       break;
@@ -1031,6 +1069,10 @@ function handleEvent(ev) {
     case 'shard': say(`+${ev.embers} \u2726 Ember shard (${game.shardsTaken} / ${game.shards.length})`, 1.5); break;
     case 'whirl': say(ev.boat ? 'Caught in the whirlpool! Lost some oil' : 'A shadow went down the whirlpool!', 1.5); break;
     case 'buoyOut': say(`A buoy burned out! (${game.buoysLit} / ${game.buoys.length} lit)`, 2); break;
+    case 'gates': say('The floodgates are sinking! New waters open up.', 3); awards.unlock('floodgates'); break;
+    case 'eclipseWarn': say('The moon is going dark… find a lit buoy!', 2.5); break;
+    case 'eclipseEnd': say('The moon is back.', 1.5); awards.unlock('eclipse'); break;
+    case 'win': if (!voyage && !customDef && levelIndex === LEVELS.length - 1) awards.unlock('keeper'); break;
   }
 }
 

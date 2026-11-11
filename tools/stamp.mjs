@@ -17,8 +17,11 @@ export function stampedHtml() {
   const files = readdirSync(new URL('src/', root)).filter((f) => f.endsWith('.js')).sort();
   const imports = Object.fromEntries(files.map((f) => [`./src/${f}`, `./src/${f}?v=${hash(`src/${f}`)}`]));
   const map = `<script type="importmap">\n${JSON.stringify({ imports }, null, 2)}\n  </script>`;
+  // modulepreload: fetch every module at once, instead of finding them one import at a time.
+  const preloads = files.map((f) => `<link rel="modulepreload" href="src/${f}?v=${hash(`src/${f}`)}">`).join('\n  ');
   let out = html.replace(/\s*<script type="importmap">[\s\S]*?<\/script>/, ''); // drop the old map (run twice: same result)
-  out = out.replace(/<link rel="stylesheet" href="style\.css[^"]*">/, `<link rel="stylesheet" href="style.css?v=${hash('style.css')}">\n  ${map}`);
+  out = out.replace(/\s*<link rel="modulepreload"[^>]*>/g, '');
+  out = out.replace(/<link rel="stylesheet" href="style\.css[^"]*">/, `<link rel="stylesheet" href="style.css?v=${hash('style.css')}">\n  ${map}\n  ${preloads}`);
   out = out.replace(/<script type="module" src="src\/main\.js[^"]*"><\/script>/, `<script type="module" src="src/main.js?v=${hash('src/main.js')}"></script>`);
   return out;
 }

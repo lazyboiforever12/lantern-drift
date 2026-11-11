@@ -112,6 +112,21 @@ export function oilMesh(gl) {
     .build(gl);
 }
 
+// A floodgate: a heavy timber sluice panel bound with iron, filling one cell along x. A teal seal
+// lamp on top glows while it's shut (the same colour as a lit buoy: light buoys to open it).
+// The renderer turns it a quarter for gates in a north-south wall, and sinks it when it opens.
+export const GATE_HEIGHT = 1.3;
+export function gateMesh(gl) {
+  const timber = [0.3, 0.2, 0.12], iron = [0.16, 0.16, 0.17], stone = [0.36, 0.35, 0.33];
+  const b = new MeshBuilder();
+  b.box(0, 0.5, 0, 2.0, 1.6, 0.8, timber);            // the panel, from below the water up to 1.3
+  for (const y of [0.2, 0.75]) b.box(0, y, 0, 2.02, 0.1, 0.84, iron);
+  for (const x of [-0.72, 0, 0.72]) b.box(x, 0.5, 0, 0.1, 1.62, 0.86, iron);
+  b.box(0, GATE_HEIGHT + 0.05, 0, 2.0, 0.1, 0.95, stone); // capstone
+  b.box(0, GATE_HEIGHT + 0.25, 0, 0.28, 0.3, 0.28, [0.4, 1.0, 0.85], 1);
+  return b.build(gl);
+}
+
 // One flat fleck of foam for the boat's wake. The renderer scales and fades it.
 export function foamMesh(gl) {
   return new MeshBuilder().box(0, 0.2, 0, 0.34, 0.03, 0.34, [0.75, 0.85, 0.9], 0.35).build(gl);

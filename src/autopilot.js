@@ -20,7 +20,7 @@ export const SKILL = {
 
 // Travel cost from every water cell to the goal cell (a small Dijkstra search; the grids are tiny).
 function distanceField(game, gx, gz) {
-  const { grid, width, height, cell } = game.level;
+  const { width, height, cell } = game.level;
   const start = [Math.floor(gx / cell), Math.floor(gz / cell)];
   const d = new Float64Array(width * height).fill(Infinity); // 64-bit: 32-bit rounding made the search loop
   const open = [[0, start[0], start[1]]];
@@ -33,7 +33,8 @@ function distanceField(game, gx, gz) {
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nc = c + dc, nr = r + dr;
       if (nc < 0 || nr < 0 || nc >= width || nr >= height) continue;
-      if (game.isSolid(nc, nr) && !(grid[nr][nc] === 'L')) continue;
+      // Only the goal cell itself may be solid (the lighthouse): routes never pass through it.
+      if (game.isSolid(nc, nr)) continue;
       // The boat travels from (nc, nr) towards (c, r), i.e. in direction (-dc, -dr).
       const cur = game.currentAt(nc * cell + cell / 2, nr * cell + cell / 2);
       const withFlow = cur ? cur.x * -dc + cur.z * -dr : 0;
@@ -55,7 +56,10 @@ export function createAutopilot(game, random = Math.random, skill = SKILL.good) 
   const { width, cell } = game.level;
   const cellOf = (x, z) => Math.floor(z / cell) * width + Math.floor(x / cell);
 
+  let gatesWere = game.gatesOpen;
   return function think() {
+    // Sunken floodgates open new routes, so every travel-cost map has to be worked out again.
+    if (game.gatesOpen !== gatesWere) { gatesWere = game.gatesOpen; fields.clear(); }
     const b = game.boat;
     const here = cellOf(b.x, b.z);
     // Pick a target: the nearest unlit buoy, or oil when it's worth the detour.

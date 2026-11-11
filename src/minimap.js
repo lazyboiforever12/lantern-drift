@@ -16,8 +16,9 @@ export class Minimap {
 
   // Build the static layer for a level: water, walls and current arrows.
   prepare(game) {
-    if (this.levelKey === game.def) return;
+    if (this.levelKey === game.def && this.gatesOpen === game.gatesOpen) return;
     this.levelKey = game.def;
+    this.gatesOpen = game.gatesOpen; // redrawn when floodgates sink
     const { grid, width, height } = game.level;
     const px = Math.max(2, Math.floor(150 / Math.max(width, height * 1.6)));
     this.px = px;
@@ -28,7 +29,8 @@ export class Minimap {
     for (let r = 0; r < height; r++) {
       for (let col = 0; col < width; col++) {
         const ch = grid[r][col];
-        c.fillStyle = ch === '#' ? '#5a4f48' : CURRENTS[ch] ? '#1d5770' : ch === 'w' ? '#0c1a24' : '#17394a';
+        const shutGate = ch === 'd' && !game.gatesOpen;
+        c.fillStyle = ch === '#' ? '#5a4f48' : shutGate ? '#3f9c8a' : CURRENTS[ch] ? '#1d5770' : ch === 'w' ? '#0c1a24' : '#17394a';
         c.fillRect(col * px, r * px, px, px);
       }
     }

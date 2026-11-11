@@ -138,6 +138,15 @@ export class Sound {
     setInterval(schedule, 250);
   }
 
+  // Hidden tab: stop the audio clock entirely (music, ambience and weather all pause together).
+  suspend() {
+    if (this.ctx && this.ctx.state === 'running') this.ctx.suspend();
+  }
+
+  resumeIfUnlocked() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : 0.35;
@@ -287,6 +296,20 @@ export class Sound {
       case 'dash':
         this.noise(0.35, { vol: 0.25, freq: 1200, type: 'bandpass' });
         this.tone(220, 0.3, { type: 'triangle', vol: 0.08, slideTo: 440 });
+        break;
+      case 'gates':
+        // Heavy stone grinding down into the water, then a bell.
+        this.noise(1.8, { vol: 0.4, freq: 90, type: 'lowpass' });
+        this.tone(70, 1.6, { type: 'sawtooth', vol: 0.08, slideTo: 40 });
+        this.tone(660, 1.4, { vol: 0.12, delay: 1.2 });
+        break;
+      case 'eclipseWarn':
+        this.tone(330, 1.6, { vol: 0.1, slideTo: 165 });
+        this.tone(311, 1.6, { vol: 0.08, slideTo: 155, delay: 0.05 });
+        break;
+      case 'eclipseEnd':
+        this.tone(392, 0.8, { vol: 0.1 });
+        this.tone(587, 1.0, { vol: 0.08, delay: 0.12 });
         break;
       case 'whirl':
         this.noise(0.8, { vol: 0.3, freq: 400, type: 'lowpass' });

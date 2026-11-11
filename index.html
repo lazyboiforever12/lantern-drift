@@ -4,40 +4,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lantern Drift</title>
-  <link rel="stylesheet" href="style.css?v=080e1bc9">
+  <meta name="description" content="Sail a lantern boat through a flooded town at night. 18 story levels, Daily Voyage, Endless mode and a level editor. Free browser game with ray-traced shadows, made with no engine.">
+  <meta name="theme-color" content="#0b0f16">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lantern Drift">
+  <meta property="og:description" content="Keep your lantern burning in a flooded town full of shadows. Free in your browser: 18 levels, ray-traced shadows, no engine.">
+  <meta property="og:url" content="https://lazyboiforever12.github.io/lantern-drift/">
+  <meta property="og:image" content="https://lazyboiforever12.github.io/lantern-drift/docs/social-preview.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@Lazyboi_forever">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0f16'/%3E%3Crect x='14' y='4' width='4' height='5' fill='%23555'/%3E%3Crect x='10' y='9' width='12' height='14' rx='2' fill='%23ffb347'/%3E%3Crect x='13' y='12' width='6' height='8' fill='%23fff1b8'/%3E%3Crect x='6' y='24' width='20' height='4' rx='2' fill='%236b4a2e'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=fa1182e8">
   <script type="importmap">
 {
   "imports": {
-    "./src/achievements.js": "./src/achievements.js?v=31c0859d",
-    "./src/audio.js": "./src/audio.js?v=0c17d292",
-    "./src/autopilot.js": "./src/autopilot.js?v=c99a96af",
+    "./src/achievements.js": "./src/achievements.js?v=e7010d36",
+    "./src/audio.js": "./src/audio.js?v=a76e3c5a",
+    "./src/autopilot.js": "./src/autopilot.js?v=47464ad7",
     "./src/blessings.js": "./src/blessings.js?v=6ce34603",
     "./src/boats.js": "./src/boats.js?v=54aff989",
-    "./src/editor.js": "./src/editor.js?v=3204db8a",
-    "./src/game.js": "./src/game.js?v=dd9fc53c",
+    "./src/editor.js": "./src/editor.js?v=b9c7093e",
+    "./src/game.js": "./src/game.js?v=8596eef7",
     "./src/gl.js": "./src/gl.js?v=7365536f",
-    "./src/levels.js": "./src/levels.js?v=b45f3a0d",
-    "./src/main.js": "./src/main.js?v=541e67e7",
+    "./src/levels.js": "./src/levels.js?v=a6b90249",
+    "./src/main.js": "./src/main.js?v=ffb5612e",
     "./src/math.js": "./src/math.js?v=7538f6c4",
-    "./src/meshes.js": "./src/meshes.js?v=ad59eac9",
-    "./src/minimap.js": "./src/minimap.js?v=8596410d",
+    "./src/meshes.js": "./src/meshes.js?v=a59f66b4",
+    "./src/minimap.js": "./src/minimap.js?v=b1405597",
     "./src/particles.js": "./src/particles.js?v=14f6e59c",
     "./src/post.js": "./src/post.js?v=d1a2388f",
-    "./src/render.js": "./src/render.js?v=91fd2cb0",
+    "./src/render.js": "./src/render.js?v=50e19447",
     "./src/shaders.js": "./src/shaders.js?v=f8d32ef1",
     "./src/ships.js": "./src/ships.js?v=cbccf531",
     "./src/shop.js": "./src/shop.js?v=f16e1c47",
-    "./src/sky.js": "./src/sky.js?v=e114c54d",
+    "./src/sky.js": "./src/sky.js?v=dbb5f484",
     "./src/textures.js": "./src/textures.js?v=460434b5",
-    "./src/voyages.js": "./src/voyages.js?v=f6036cf9"
+    "./src/voyages.js": "./src/voyages.js?v=33c3ac5c"
   }
 }
   </script>
+  <link rel="modulepreload" href="src/achievements.js?v=e7010d36">
+  <link rel="modulepreload" href="src/audio.js?v=a76e3c5a">
+  <link rel="modulepreload" href="src/autopilot.js?v=47464ad7">
+  <link rel="modulepreload" href="src/blessings.js?v=6ce34603">
+  <link rel="modulepreload" href="src/boats.js?v=54aff989">
+  <link rel="modulepreload" href="src/editor.js?v=b9c7093e">
+  <link rel="modulepreload" href="src/game.js?v=8596eef7">
+  <link rel="modulepreload" href="src/gl.js?v=7365536f">
+  <link rel="modulepreload" href="src/levels.js?v=a6b90249">
+  <link rel="modulepreload" href="src/main.js?v=ffb5612e">
+  <link rel="modulepreload" href="src/math.js?v=7538f6c4">
+  <link rel="modulepreload" href="src/meshes.js?v=a59f66b4">
+  <link rel="modulepreload" href="src/minimap.js?v=b1405597">
+  <link rel="modulepreload" href="src/particles.js?v=14f6e59c">
+  <link rel="modulepreload" href="src/post.js?v=d1a2388f">
+  <link rel="modulepreload" href="src/render.js?v=50e19447">
+  <link rel="modulepreload" href="src/shaders.js?v=f8d32ef1">
+  <link rel="modulepreload" href="src/ships.js?v=cbccf531">
+  <link rel="modulepreload" href="src/shop.js?v=f16e1c47">
+  <link rel="modulepreload" href="src/sky.js?v=dbb5f484">
+  <link rel="modulepreload" href="src/textures.js?v=460434b5">
+  <link rel="modulepreload" href="src/voyages.js?v=33c3ac5c">
 </head>
 <body>
   <canvas id="game"></canvas>
   <div id="hud"></div>
   <div id="screen"></div>
-  <script type="module" src="src/main.js?v=541e67e7"></script>
+  <script type="module" src="src/main.js?v=ffb5612e"></script>
 </body>
 </html>

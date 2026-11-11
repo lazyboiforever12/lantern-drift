@@ -8,7 +8,7 @@ import { Particles } from './particles.js';
 import { perspective, lookAt, multiply, model, IDENTITY, pivotRotate, invert } from './math.js';
 import { Sky } from './sky.js';
 import {
-  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh, whirlpoolMesh, shardMesh,
+  boatMesh, designBoatMesh, boatPartMesh, buoyMesh, oilMesh, creatureMesh, lighthouseMesh, buildingsMesh, propsMesh, buildingHeight, waterMesh, foamMesh, streakMesh, whirlpoolMesh, shardMesh, gateMesh, GATE_HEIGHT,
 } from './meshes.js';
 
 const WHITE = [1, 1, 1];
@@ -21,6 +21,8 @@ const WAKE_LIFE = 1.4;   // seconds a fleck of foam lasts
 const WAKE_MAX = 60;
 // Height of the water at (x, z): the same three waves as the water vertex shader (shaders.js),
 // so floating things ride the swell instead of hovering over the troughs.
+// How far up the floodgates stand: 1 while shut, sinking to 0 over 1.6 s once they open.
+const gateLift = (game) => (game.gatesOpen ? Math.max(0, 1 - (game.time - game.gatesOpenedAt) / 1.6) : 1);
 export const waveHeight = (x, z, t) =>
   0.12 * Math.sin(x * 0.6 + t * 1.3) + 0.10 * Math.cos(z * 0.5 + t * 1.1) + 0.04 * Math.sin((x + z) * 1.3 + t * 2.0);
 // Where the moon hangs: north-west and fairly low, so it shows in photos and on the water.
@@ -66,6 +68,7 @@ export class Renderer {
       streak: streakMesh(gl),
       whirlpool: whirlpoolMesh(gl),
       shard: shardMesh(gl),
+      gate: gateMesh(gl),
     };
     this.wake = [];       // foam flecks: { x, z, life, spin }
     this.wakeTimer = 0;
@@ -372,18 +375,26 @@ export class Renderer {
       const dir = CURRENTS[ch];
       if (dir) this.currentCells.push({ x: c * cell + cell / 2, z: r * cell + cell / 2, dir, angle: Math.atan2(dir.x, dir.z), seed: (c * 7 + r * 13) % 10 / 10 });
     }));
-    this.uploadHeightMap(game.level);
+    // Floodgates face along their wall: turned a quarter when the wall runs north-south.
+    const wallAt = (c, r) => grid[r] && (grid[r][c] === '#' || grid[r][c] === 'd');
+    this.gateTurns = game.level.gates.map((g) => (wallAt(g.col - 1, g.row) || wallAt(g.col + 1, g.row) ? 0 : Math.PI / 2));
+    this.gateLift = null;
+    this.uploadHeightMap(game.level, GATE_HEIGHT);
     this.levelKey = game.def;
   }
 
   // One float per grid cell: the roof height of a building, or far below the water for open cells.
   // The shader walks this grid to trace shadow rays (see traceGrid in shaders.js).
-  uploadHeightMap(level) {
+  // gateTop: how high closed floodgates stand (they sink as they open, then stop casting shadows).
+  uploadHeightMap(level, gateTop) {
     const gl = this.gl;
     const { grid, width, height } = level;
     const data = new Float32Array(width * height);
     for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) data[r * width + c] = grid[r][c] === '#' ? buildingHeight(c, r) : -100;
+      for (let c = 0; c < width; c++) {
+        const ch = grid[r][c];
+        data[r * width + c] = ch === '#' ? buildingHeight(c, r) : ch === 'd' && gateTop > 0.05 ? gateTop : -100;
+      }
     }
     if (!this.heightMap) this.heightMap = gl.createTexture();
     gl.activeTexture(gl.TEXTURE4);
@@ -405,6 +416,12 @@ export class Renderer {
     const u = this.u;
     const [w, h] = this.resize();
     this.prepareLevel(game);
+    // Sinking floodgates: keep the shadow-tracing grid in step with the panels as they go down.
+    const lift = this.gateLift = game.level.gates.length ? gateLift(game) : 1;
+    if (game.level.gates.length && lift !== this.lastGateLift) {
+      this.uploadHeightMap(game.level, GATE_HEIGHT * lift);
+      this.lastGateLift = lift;
+    }
 
     // Camera follows the boat from above and behind (south).
     const b = game.boat;
@@ -458,12 +475,15 @@ export class Renderer {
     gl.uniform3fv(u.uCamPos, eye);
     // Snow brightens the night a little (it reflects the moon); fog and clear nights change the mist.
     const weather = game.def.weather || 'rain';
-    if (weather === 'snow') gl.uniform3f(u.uAmbient, 0.022, 0.026, 0.042);
-    else gl.uniform3f(u.uAmbient, 0.012, 0.014, 0.026);
+    // An eclipse (game.eclipse 0..1) dims the night and turns the moonlight a faint blood red.
+    const e = game.eclipse || 0;
+    const dim = 1 - 0.55 * e;
+    if (weather === 'snow') gl.uniform3f(u.uAmbient, 0.022 * dim, 0.026 * dim, 0.042 * dim);
+    else gl.uniform3f(u.uAmbient, 0.012 * dim, 0.014 * dim, 0.026 * dim);
     const md = MOON;
     const ml = Math.hypot(...md);
     gl.uniform3f(u.uMoonDir, md[0] / ml, md[1] / ml, md[2] / ml);
-    gl.uniform3f(u.uMoonColor, 0.022, 0.028, 0.05);
+    gl.uniform3f(u.uMoonColor, 0.022 + 0.004 * e, 0.028 - 0.022 * e, 0.05 - 0.045 * e);
 
     const lights = game.lights().slice(0, MAX_LIGHTS);
     const calm = !this.settings.flashes; // reduced flashing: soften the flare's burst of light
@@ -510,7 +530,7 @@ export class Renderer {
       const mirrored = multiply(viewProj, MIRROR_Y);
       if (this.sky) {
         // Seen from the mirrored camera (below the water), the sky is what the water reflects.
-        this.sky.draw(invert(mirrored), [eye[0], -eye[1], eye[2]], MOON, time);
+        this.sky.draw(invert(mirrored), [eye[0], -eye[1], eye[2]], MOON, time, game.eclipse || 0);
         gl.useProgram(this.program);
       }
       gl.uniformMatrix4fv(u.uViewProj, false, mirrored);
@@ -537,7 +557,7 @@ export class Renderer {
     }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if (this.sky) {
-      this.sky.draw(invert(viewProj), eye, MOON, time);
+      this.sky.draw(invert(viewProj), eye, MOON, time, game.eclipse || 0);
       gl.useProgram(this.program);
     }
     gl.uniform2f(u.uViewport, w, h);
@@ -618,6 +638,13 @@ export class Renderer {
         glow: bu.lit ? 2 * game.buoyStrength(bu) : 0.35 + 0.25 * Math.sin(time * 3 + i),
       });
     });
+    if (this.gateLift > 0) {
+      const sink = (1 - this.gateLift) * 2.0;
+      const seal = game.gatesOpen ? 0 : 1.4 + 0.6 * Math.sin(time * 3);
+      game.level.gates.forEach((g, i) => {
+        this.drawMesh(m.gate, model(g.x, -sink, g.z, this.gateTurns[i]), { glow: seal, tex: [TEX.wood, TEX.stone, 1.5] });
+      });
+    }
     for (const w of game.whirlpools) {
       const pulse = 1 + 0.05 * Math.sin(time * 3 + w.x);
       this.drawMesh(m.whirlpool, model(w.x, 0, w.z, -time * 2.4, pulse, 1, pulse), { glow: 1 });
